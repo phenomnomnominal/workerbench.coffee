@@ -57,10 +57,12 @@ WorkerBench = ((WorkerBench = {}) ->
       # > * **`NUMBER_OF_TIMES_TO_BENCHMARK`** - The number of times that the benchmark test should be run. Higher values yield more accurate results, but take longer to run. *Defaults to `5`*
       #
       # > * **`PATH_TO_WORKER_SCRIPT`** - The path to the [*worker.js*](worker.html) file. Ideally the **Worker** script would be inline with a URL generated from a single scrip to avoid the need for this, but the [**URL API**](https://developer.mozilla.org/en-US/docs/DOM/window.URL.createObjectURL) is not yet as widely supported as **WebWorkers**. *Defaults to `'javascript/workerbench'`*
+      # > * **`ON_COMPLETE`** - The function that is called when the test have been completed. *Defaults to `-> alert "Optimum Web Workers: #{WorkerBench.result()}`"*
       defaultOptions =
         maxWorkersToTestFor: 8
         numberOfTimesToBenchmark: 5
         pathToWorkerScript: 'javascript/workerbench'
+        onComplete: -> alert "Optimum Web Workers: #{WorkerBench.result()}"
 
       constant = (key, value) ->
         Object.defineProperty this, key,
@@ -70,6 +72,7 @@ WorkerBench = ((WorkerBench = {}) ->
       constant.call _options, 'MAX_WORKERS_TO_TEST_FOR', options.maxWorkersToTestFor || defaultOptions.maxWorkersToTestFor
       constant.call _options, 'NUMBER_OF_TIMES_TO_BENCHMARK', options.numberOfTimesToBenchmark || defaultOptions.numberOfTimesToBenchmark
       constant.call _options, 'PATH_TO_WORKER_SCRIPT', options.pathToWorkerScript || defaultOptions.pathToWorkerScript
+      constant.call _options, 'ON_COMPLETE', options.onComplete || defaultOptions.onComplete
       
     # > ## <section id='start'>**WorkerBench.start:**</section>
     # > **`WorkerBench.start`** is used to start the benchmark process. It should be called by the user once the called the [**`WorkerBench.init`**](#init) function.
@@ -98,6 +101,7 @@ WorkerBench = ((WorkerBench = {}) ->
         WorkerBench.result = -> _generateResult results
         console.log "Optimum Web Workers: #{WorkerBench.result()}"
         console.log "Benchmarks took: #{performance.now() - performance.initTime}."
+        _options.ON_COMPLETE()
 
     # > ## <section id='benchmark'>**_runBenchmark:**</section>
     # > **`_runBenchmark`** performs most of the heavy lifting of this tool. It creates the **WebWorkers** for a benchmark test, and measures the results. After the test is completed, it relies on [**`_finishedBenchmark`**](#finished) to tidy up the resulting data and report back to [**`_run`**](#run) to get the next test.
