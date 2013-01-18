@@ -18,11 +18,11 @@ performance.initTime = performance.now()
 # # <section id="workerbench">WorkerBench module:</section>
 # ___
 
-# The [**`WorkerBench`**](#workerbench) module encapsulates all the functionality of this tool, and exposes three functions to the outside scope: [**`init`**](#init), [**`start`**](#start) and [**`result`**](#result). Although these function are made available externally, the [**`init`**](#init) and [**`start`**](#start) are automatically called at the end of this script.
+# The [**`WorkerBench`**](#workerbench) module encapsulates all the functionality of this tool, and exposes four functions to the outside scope: [**`init`**](#init), [**`start`**](#start), [**`workersAvailable`**](#workersAvailable) and [**`result`**](#result). Although these function are made available externally, the [**`init`**](#init) and [**`start`**](#start) are automatically called at the end of this script.
 WorkerBench = ((WorkerBench = {}) ->
   # First, we have to check that the **Worker** constructor is available, and if not, create default functions that just let the user know that the benchmark test can't be run without **Workers**.
   unless Worker? and (typeof Worker is 'function' or typeof Worker is 'object')
-    WorkerBench.init = WorkerBench.run = WorkerBench.results = ->
+    WorkerBench.init = WorkerBench.run = WorkerBench.results = WorkerBench.workersAvailable = ->
       console.log 'WebWorkers are not available.'
       false
 
@@ -38,6 +38,13 @@ WorkerBench = ((WorkerBench = {}) ->
     
     # ## Public Functions:
     # ___
+    
+    # > ## <section id='workersAvailable'>**WorkerBench.workersAvailable:**</section>
+    # > **`WorkerBench.workersAvailable`** provides an easy **boolean** check for whether this browser can use **WebWorkers**. It can be used to provide different functionality for a page if **`Workers`** aren't available.
+    
+    WorkerBench.workersAvailable = ->
+      console.log 'WebWorkers are available.'
+      true
     
     # > ## <section id='result'>**WorkerBench.result:**</section>
     # > **`WorkerBench.result`** is initially set to just report that the benchmark hasn't finished and to return `false`. When the benchmark has finished, this is overwritten  to return the optimum number of **WebWorkers** for the current device.
@@ -188,6 +195,6 @@ WorkerBench.start()
 # # Exports:
 #___
 
-# The [**`WorkerBench`**](#workerbench) module is added to the global **`root`** object, which allows external access to the [**`WorkerBench.init`**](#init), [**`WorkerBench.start`**](#start) and [**`WorkerBench.result`**](#result) functions.
+# The [**`WorkerBench`**](#workerbench) module is added to the global **`root`** object, which allows external access to the [**`WorkerBench.init`**](#init), [**`WorkerBench.start`**](#start), [**`WorkerBench.workersAvailable`**](#workersAvailable) and [**`WorkerBench.result`**](#result) functions.
 root = exports ? this
 root.WorkerBench = WorkerBench
