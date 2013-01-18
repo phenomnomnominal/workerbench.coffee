@@ -1,4 +1,4 @@
-## workerbench.coffee (v0.1.0)
+## workerbench.coffee (v0.1.1)
 
 Need to use a whole bunch of [**WebWorkers**](http://www.whatwg.org/specs/web-apps/current-work/multipage/workers.html), but don't know what devices they will run on? Unfortunately, the spec doesn't define a mechanism to get any information about the capabilities of the device, so how can you know what the best number of **Workers** to launch is?
 
@@ -40,7 +40,8 @@ Rather than launching the tool from a seperate script, the **WorkerBench.init** 
 ## Running the tool:
 
 **WorkerBench** can be configured and run as many times as you like within a programme. Simply pass a new `_options` object to the `init` function to change the configuration, or just call the **WorkerBench.start** function again to run the benchmark tests again.
-Once the `onComplete` function is called when the benchmark tests are complete, the result can be retrieved from **WorkerBench.result** at any time.
+Once the `onComplete` function is called when the benchmark tests are complete, the result can be retrieved from **WorkerBench.result** at any time. There is also a **WorkerBench.workersAvailable** function, which gives a **boolean** result as to whether or not the client environment can create **WebWorkers**.
+This is useful for providing fall-back functionality in situations where they aren't available.
 
 A working demo (with the default settings) can be tried [**here**](http://phenomnomnominal.github.com/workerbench)!
 
