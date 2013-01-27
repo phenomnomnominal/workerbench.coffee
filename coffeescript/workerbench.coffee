@@ -105,7 +105,8 @@ WorkerBench = ((WorkerBench = {}) ->
         _runBenchmark workersPerBenchmark, results
       # > Otherwise, the benchmarking is completed, and we can assign the best result (as determined by the [**`_generateResult`**](#generate) function) to the **`WorkerBench.result`** function, and report the result to the user.
       else
-        WorkerBench.result = -> _generateResult results
+        result = _generateResult results
+        WorkerBench.result = -> result
         console.log "Optimum Web Workers: #{WorkerBench.result()}"
         console.log "Benchmarks took: #{performance.now() - performance.initTime}."
         _options.ON_COMPLETE()
@@ -178,7 +179,7 @@ WorkerBench = ((WorkerBench = {}) ->
       for own nWorkers, result of results
         if result < smallestTime
           smallestTime = result
-          bestNWorkers = nWorkers
+          bestNWorkers = +nWorkers
       bestNWorkers
       
   # The [**`WorkerBench`**](#workerbench) module is then returned to the main scope.
