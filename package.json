@@ -1,0 +1,29 @@
+{
+  "name": "workerbench.coffee",
+  "version": "1.1.0",
+  "author": "phenomnomnominal <craigspence0@gmail.com>",
+  "description": "",
+  "contributors": [
+    {
+      "name": "Craig Spence",
+      "email": "craigspence0@gmail.com"
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/phenomnomnominal/workerbench.coffee.git"
+  },
+  "keywords": [
+  ],
+  "devDependencies": {
+    "grunt": "~0.4.2",
+    "grunt-contrib-coffee": "~0.7.0",
+    "grunt-contrib-watch": "~0.5.3",
+    "grunt-contrib-uglify": "~0.2.7",
+    "grunt-docco-multi": "0.0.2",
+    "grunt-devserver": "~0.5.0",
+    "grunt-concurrent": "~0.4.2",
+    "grunt-contrib-sass": "~0.5.1"
+  },
+  "license": "MIT"
+}

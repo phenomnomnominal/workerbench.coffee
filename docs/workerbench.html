@@ -1,184 +1,457 @@
-<!DOCTYPE html>  <html> <head>   <title>workerbench.coffee</title>   <meta http-equiv="content-type" content="text/html; charset=UTF-8">   <link rel="stylesheet" media="all" href="docco.css" /> </head> <body>   <div id="container">     <div id="background"></div>          <table cellpadding="0" cellspacing="0">       <thead>         <tr>           <th class="docs">             <h1>               workerbench.coffee             </h1>           </th>           <th class="code">           </th>         </tr>       </thead>       <tbody>                               <tr id="section-1">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-1">&#182;</a>               </div>               <hr />
+<!DOCTYPE html>
 
-<p><strong>Workerbench.coffee</strong> is a tool that can be used to determine an appropriate number of <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/workers.html"><strong><code>WebWorkers</code></strong></a> to create when running tasks in parallel in the web browser. Currently, there is no mechanism for easy determining the best number of <strong>WebWorkers</strong> on a device-by-device basis.  This tool works by running a series of benchmarking tests, where it spins up a group of <strong>WebWorkers</strong>, the number of which increases with each test. For each test, the <strong>Worker</strong> threads are kept busy for a period of time, and the time taken for the whole set of <strong>WebWorkers</strong> to complete is monitored. Eventually, there is some number of <strong>Worker</strong> instances where the browser cannot maintain all the threads simultaneously, and has to wait for one of the threads to finish before starting another. This cause a significant increase in the resulting time taken. By finding the smallest time taken to complete the tasks, we can determine a faifly reliable estimate (usually correct, or one less than expected) of how many <strong>Worker</strong> instances are appropriate for the current device. This estimate is also dependent on what else the device is doing at the time.</p>             </td>             <td class="code">               <div class="highlight"><pre></pre></div>             </td>           </tr>                               <tr id="section-2">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-2">&#182;</a>               </div>               <h1><section id="performance">Performance.now Shim:</section></h1>
+<html>
+<head>
+  <title>workerbench.litcoffee</title>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+  <link rel="stylesheet" media="all" href="public/stylesheets/normalize.css" />
+  <link rel="stylesheet" media="all" href="docco.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="page">
 
-<hr />             </td>             <td class="code">               <div class="highlight"><pre></pre></div>             </td>           </tr>                               <tr id="section-3">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-3">&#182;</a>               </div>               <p>Ideally, we want to be able to use the <a href="https://dvcs.w3.org/hg/webperf/raw-file/tip/specs/HighResolutionTime/Overview.html"><strong>High Resolution Timer</strong></a> for timing the benchmark tests, but that won't be implemented in all browsers for a while (Currently only Chrome). To be ready for if/when they are implemented in other browsers, we re-assign each of the likely vendor prefixes to <code>performance.now</code> with a fall-back to <code>Date.getTime()</code> if necessary.</p>             </td>             <td class="code">               <div class="highlight"><pre><span class="nb">window</span><span class="p">.</span><span class="nx">performance</span> <span class="o">?=</span> <span class="p">{}</span>
-<span class="nv">performance.now = </span><span class="p">(</span><span class="o">-&gt;</span>
-  <span class="nx">performance</span><span class="p">.</span><span class="nx">now</span> <span class="o">or</span>
-  <span class="nx">performance</span><span class="p">.</span><span class="nx">webkitNow</span> <span class="o">or</span>
-  <span class="nx">performance</span><span class="p">.</span><span class="nx">msNow</span> <span class="o">or</span>
-  <span class="nx">performance</span><span class="p">.</span><span class="nx">oNow</span> <span class="o">or</span>
-  <span class="nx">performance</span><span class="p">.</span><span class="nx">mozNow</span> <span class="o">or</span>
-  <span class="o">-&gt;</span> <span class="k">new</span> <span class="nb">Date</span><span class="p">().</span><span class="nx">getTime</span><span class="p">())()</span>
-<span class="nv">performance.initTime = </span><span class="nx">performance</span><span class="p">.</span><span class="nx">now</span><span class="p">()</span></pre></div>             </td>           </tr>                               <tr id="section-4">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-4">&#182;</a>               </div>               <h1><section id="workerbench">WorkerBench module:</section></h1>
+      <div class="header">
+        
+          <h1>workerbench.litcoffee</h1>
+        
 
-<hr />             </td>             <td class="code">               <div class="highlight"><pre></pre></div>             </td>           </tr>                               <tr id="section-5">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-5">&#182;</a>               </div>               <p>The <a href="#workerbench"><strong><code>WorkerBench</code></strong></a> module encapsulates all the functionality of this tool, and exposes four functions to the outside scope: <a href="#init"><strong><code>init</code></strong></a>, <a href="#start"><strong><code>start</code></strong></a>, <a href="#workersAvailable"><strong><code>workersAvailable</code></strong></a> and <a href="#result"><strong><code>result</code></strong></a>. Although these function are made available externally, the <a href="#init"><strong><code>init</code></strong></a> and <a href="#start"><strong><code>start</code></strong></a> are automatically called at the end of this script.</p>             </td>             <td class="code">               <div class="highlight"><pre><span class="nv">WorkerBench = </span><span class="p">(</span><span class="nf">(WorkerBench = {}) -&gt;</span></pre></div>             </td>           </tr>                               <tr id="section-6">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-6">&#182;</a>               </div>               <p>First, we have to check that the <strong>Worker</strong> constructor is available, and if not, create default functions that just let the user know that the benchmark test can't be run without <strong>Workers</strong>.</p>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="nx">unless</span> <span class="nx">Worker</span><span class="o">?</span> <span class="o">and</span> <span class="p">(</span><span class="k">typeof</span> <span class="nx">Worker</span> <span class="o">is</span> <span class="s">&#39;function&#39;</span> <span class="o">or</span> <span class="k">typeof</span> <span class="nx">Worker</span> <span class="o">is</span> <span class="s">&#39;object&#39;</span><span class="p">)</span>
-    <span class="nv">WorkerBench.init = WorkerBench.run = WorkerBench.results = WorkerBench.workersAvailable = </span><span class="o">-&gt;</span>
-      <span class="nx">console</span><span class="p">.</span><span class="nx">log</span> <span class="s">&#39;WebWorkers are not available.&#39;</span>
-      <span class="kc">false</span></pre></div>             </td>           </tr>                               <tr id="section-7">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-7">&#182;</a>               </div>               <p>Provided that the <strong>Worker</strong> constructor is available, which means that we can create <strong>WebWorkers</strong>, we create the rest of the <a href="#workerbench"><strong><code>WorkerBench</code></strong></a> module:</p>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="k">else</span>
-    </pre></div>             </td>           </tr>                               <tr id="section-8">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-8">&#182;</a>               </div>               <h2>Private Variables:</h2>
+        
+          <div class="toc">
+            <h3>Table of Contents</h3>
+            <ol>
+              
+                
+                <li>
+                  <a class="source" href="worker.html">
+                    worker.litcoffee
+                  </a>
+                </li>
+              
+                
+                <li>
+                  <a class="source" href="workerbench.html">
+                    workerbench.litcoffee
+                  </a>
+                </li>
+              
+            </ol>
+          </div>
+        
+      </div>
 
-<hr />             </td>             <td class="code">               <div class="highlight"><pre>    </pre></div>             </td>           </tr>                               <tr id="section-9">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-9">&#182;</a>               </div>               <blockquote>
-  <p><strong><code>_options</code></strong> is first set as an empty object, which will be added to in the <a href="#init"><strong><code>WorkerBench.init</code></strong></a> function.</p>
-</blockquote>             </td>             <td class="code">               <div class="highlight"><pre>    
-    <span class="nv">_options = </span><span class="p">{}</span>
-    </pre></div>             </td>           </tr>                               <tr id="section-10">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-10">&#182;</a>               </div>               <h2>Public Functions:</h2>
+      
+        
+        <p><strong>WorkerBench</strong> is a tool that can be used to determine an appropriate number
+of <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/workers.html"><strong><code>WebWorkers</code></strong></a> to create when running tasks in parallel in the web
+browser. Currently, there is no mechanism for easy determining the best number
+of <code>WebWorkers</code> on a device-by-device basis. This tool works by running a
+series of benchmarking tests, where it spins up a group of <code>WebWorkers</code>, the
+number of which increases with each test. For each test, the <code>Worker</code> threads
+are kept busy for a period of time, and the time taken for the whole set of
+<code>WebWorkers</code> to complete is monitored. Eventually, there is some number of
+<code>Worker</code> instances where the browser can’t maintain all the threads
+simultaneously, and has to wait for one of the threads to finish before
+starting another. This cause a significant increase in the overall time taken.
+By finding the smallest time taken to run the tasks, <strong>WorkerBench</strong> determines
+a fairly reliable estimate (usually correct, or one less than expected) of how
+many <code>Worker</code> instances are appropriate for the current device. This estimate
+is of course dependent on what else the device is doing at the time.</p>
+<hr>
+<h1 id="-section-id-shims-shims-section-"><section id="Shims">Shims</section></h1>
+<h2 id="-section-id-performancenow-performance-now-section-"><section id="PerformanceNow">performance.now:</section></h2>
+<p>Ideally, we want to be able to use the <a href="https://dvcs.w3.org/hg/webperf/raw-file/tip/specs/HighResolutionTime/Overview.html"><strong>High Resolution Timer</strong></a> for
+timing the benchmark tests, but that won’t be implemented in all browsers for
+a while (Currently only Chrome). To be ready for if/when they are implemented
+in other browsers, we re-assign each of the likely vendor prefixes to
+<code>performance.now</code> with a fall-back to <code>Date.getTime()</code> if necessary.</p>
 
-<hr />             </td>             <td class="code">               <div class="highlight"><pre>    </pre></div>             </td>           </tr>                               <tr id="section-11">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-11">&#182;</a>               </div>               <blockquote>
-  <h2><section id='workersAvailable'><strong>WorkerBench.workersAvailable:</strong></section></h2>
-  
-  <p><strong><code>WorkerBench.workersAvailable</code></strong> provides an easy <strong>boolean</strong> check for whether this browser can use <strong>WebWorkers</strong>. It can be used to provide different functionality for a page if <strong><code>Workers</code></strong> aren't available.</p>
-</blockquote>             </td>             <td class="code">               <div class="highlight"><pre>    
-    <span class="nv">WorkerBench.workersAvailable = </span><span class="o">-&gt;</span>
-      <span class="nx">console</span><span class="p">.</span><span class="nx">log</span> <span class="s">&#39;WebWorkers are available.&#39;</span>
-      <span class="kc">true</span>
-    </pre></div>             </td>           </tr>                               <tr id="section-12">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-12">&#182;</a>               </div>               <blockquote>
-  <h2><section id='result'><strong>WorkerBench.result:</strong></section></h2>
-  
-  <p><strong><code>WorkerBench.result</code></strong> is initially set to just report that the benchmark hasn't finished and to return <code>false</code>. When the benchmark has finished, this is overwritten  to return the optimum number of <strong>WebWorkers</strong> for the current device.</p>
-</blockquote>             </td>             <td class="code">               <div class="highlight"><pre>    
-    <span class="nv">WorkerBench.result = </span><span class="o">-&gt;</span>
-      <span class="nx">console</span><span class="p">.</span><span class="nx">log</span> <span class="s">&#39;Benchmark not yet complete.&#39;</span>
-      <span class="kc">false</span></pre></div>             </td>           </tr>                               <tr id="section-13">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-13">&#182;</a>               </div>               <blockquote>
-  <h2><section id='init'><strong>WorkerBench.init:</strong></section></h2>
-  
-  <p><strong><code>WorkerBench.init</code></strong> must be called before running the benchmarks. It allows the user to specify options for the benchmark tests, including:</p>
-</blockquote>             </td>             <td class="code">               <div class="highlight"><pre>    
-    <span class="nv">WorkerBench.init = </span><span class="nf">(options = {}) -&gt;</span>
-      <span class="nv">_options = </span><span class="p">{}</span>
-      </pre></div>             </td>           </tr>                               <tr id="section-14">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-14">&#182;</a>               </div>               <blockquote>
-  <ul>
-  <li><p><strong><code>MAX_WORKERS_TO_TEST_FOR</code></strong> - The maximum number of <strong>WebWorkers</strong> that should be tested for. <em>Defaults to <code>8</code></em></p></li>
-  <li><p><strong><code>NUMBER_OF_TIMES_TO_BENCHMARK</code></strong> - The number of times that the benchmark test should be run. Higher values yield more accurate results, but take longer to run. <em>Defaults to <code>5</code></em></p></li>
-  <li><p><strong><code>PATH_TO_WORKER_SCRIPT</code></strong> - The path to the <a href="worker.html"><em>worker.js</em></a> file. Ideally the <strong>Worker</strong> script would be inline with a URL generated from a single scrip to avoid the need for this, but the <a href="https://developer.mozilla.org/en-US/docs/DOM/window.URL.createObjectURL"><strong>URL API</strong></a> is not yet as widely supported as <strong>WebWorkers</strong>. <em>Defaults to <code>'javascript/workerbench'</code></em></p></li>
-  <li><strong><code>ON_COMPLETE</code></strong> - The function that is called when the test have been completed. <em>Defaults to <code>-&gt; alert "Optimum Web Workers: #{WorkerBench.result()}</code>"</em></li>
-  </ul>
-</blockquote>             </td>             <td class="code">               <div class="highlight"><pre>      <span class="nv">defaultOptions =</span>
-        <span class="nv">maxWorkersToTestFor: </span><span class="mi">8</span>
-        <span class="nv">numberOfTimesToBenchmark: </span><span class="mi">5</span>
-        <span class="nv">pathToWorkerScript: </span><span class="s">&#39;javascript/workerbench&#39;</span>
-        <span class="nv">onComplete: </span><span class="o">-&gt;</span> <span class="nx">alert</span> <span class="s">&quot;Optimum Web Workers: </span><span class="si">#{</span><span class="nx">WorkerBench</span><span class="p">.</span><span class="nx">result</span><span class="p">()</span><span class="si">}</span><span class="s">&quot;</span>
+        
+          <div class='highlight'><pre><span class="hljs-built_in">window</span>.performance ?= {}
+performance.now = <span class="hljs-keyword">do</span><span class="hljs-function"> -&gt;</span>
+  performance.now <span class="hljs-keyword">or</span>
+  performance.webkitNow <span class="hljs-keyword">or</span>
+  performance.mozNow <span class="hljs-keyword">or</span>
+  performance.msNow <span class="hljs-keyword">or</span>
+  performance.oNow <span class="hljs-keyword">or</span><span class="hljs-function">
+  -&gt;</span> <span class="hljs-keyword">new</span> Date().getTime()</pre></div>
+        
+      
+        
+        <hr>
+<h1 id="-section-id-utitlities-utilities-section-"><section id="Utitlities">Utilities</section></h1>
+<h2 id="-section-id-log-_log-section-"><section id="log">_log:</section></h2>
+<p>We have a silly utility function just to make sure that <code>console.log</code> exists,
+and to wrap anything that is logged from <strong>WorkerBench</strong> so the user can see
+where the log came from.</p>
 
-      <span class="nv">constant = </span><span class="nf">(key, value) -&gt;</span>
-        <span class="nb">Object</span><span class="p">.</span><span class="nx">defineProperty</span> <span class="k">this</span><span class="p">,</span> <span class="nx">key</span><span class="p">,</span>
-          <span class="nv">get: </span><span class="o">-&gt;</span> <span class="nx">value</span>
-          <span class="nv">set: </span><span class="o">-&gt;</span> <span class="k">throw</span> <span class="nb">Error</span> <span class="s">&#39;Cannot set value of constant!&#39;</span>
+        
+          <div class='highlight'><pre><span class="hljs-function"><span class="hljs-title">_log</span> = <span class="hljs-params">(message)</span> -&gt;</span>
+  <span class="hljs-keyword">if</span> <span class="hljs-built_in">console</span> <span class="hljs-keyword">and</span> <span class="hljs-built_in">console</span>.log
+    <span class="hljs-built_in">console</span>.log <span class="hljs-string">"WorkerBench says: '<span class="hljs-subst">#{message}</span>'"</span></pre></div>
+        
+      
+        
+        <hr>
+<h1 id="-section-id-workerbench-workerbench-factory-section-"><section id="WorkerBench">WorkerBench Factory</section></h1>
+<p>The <a href="#WorkerBench"><strong><code>WorkerBench</code></strong></a> module encapsulates all the functionality of
+<strong>WorkerBench</strong>, and exposes four functions to the outside scope:
+<a href="#workersAvailable"><strong><code>workersAvailable</code></strong></a>, <a href="#setup"><strong><code>setup</code></strong></a>, <a href="#start"><strong><code>start</code></strong></a> and
+<a href="#result"><strong><code>result</code></strong></a>. All these function are made available externally, but
+<strong><code>start</code></strong> is automatically called at the end of this script by default.</p>
 
-      <span class="nx">constant</span><span class="p">.</span><span class="nx">call</span> <span class="nx">_options</span><span class="p">,</span> <span class="s">&#39;MAX_WORKERS_TO_TEST_FOR&#39;</span><span class="p">,</span> <span class="nx">options</span><span class="p">.</span><span class="nx">maxWorkersToTestFor</span> <span class="o">||</span> <span class="nx">defaultOptions</span><span class="p">.</span><span class="nx">maxWorkersToTestFor</span>
-      <span class="nx">constant</span><span class="p">.</span><span class="nx">call</span> <span class="nx">_options</span><span class="p">,</span> <span class="s">&#39;NUMBER_OF_TIMES_TO_BENCHMARK&#39;</span><span class="p">,</span> <span class="nx">options</span><span class="p">.</span><span class="nx">numberOfTimesToBenchmark</span> <span class="o">||</span> <span class="nx">defaultOptions</span><span class="p">.</span><span class="nx">numberOfTimesToBenchmark</span>
-      <span class="nx">constant</span><span class="p">.</span><span class="nx">call</span> <span class="nx">_options</span><span class="p">,</span> <span class="s">&#39;PATH_TO_WORKER_SCRIPT&#39;</span><span class="p">,</span> <span class="nx">options</span><span class="p">.</span><span class="nx">pathToWorkerScript</span> <span class="o">||</span> <span class="nx">defaultOptions</span><span class="p">.</span><span class="nx">pathToWorkerScript</span>
-      <span class="nx">constant</span><span class="p">.</span><span class="nx">call</span> <span class="nx">_options</span><span class="p">,</span> <span class="s">&#39;ON_COMPLETE&#39;</span><span class="p">,</span> <span class="nx">options</span><span class="p">.</span><span class="nx">onComplete</span> <span class="o">||</span> <span class="nx">defaultOptions</span><span class="p">.</span><span class="nx">onComplete</span>
-      </pre></div>             </td>           </tr>                               <tr id="section-15">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-15">&#182;</a>               </div>               <blockquote>
-  <h2><section id='start'><strong>WorkerBench.start:</strong></section></h2>
-  
-  <p><strong><code>WorkerBench.start</code></strong> is used to start the benchmark process. It should be called by the user once the called the <a href="#init"><strong><code>WorkerBench.init</code></strong></a> function.</p>
-</blockquote>             </td>             <td class="code">               <div class="highlight"><pre>    
-    <span class="nv">WorkerBench.start = </span><span class="o">-&gt;</span></pre></div>             </td>           </tr>                               <tr id="section-16">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-16">&#182;</a>               </div>               <blockquote>
-  <p>First, there is a check that the correct values have been set on the <strong><code>_options</code></strong> object. If they have not been set, an <strong><code>Error</code></strong> is thrown, and the benchmark process is aborted.</p>
-</blockquote>             </td>             <td class="code">               <div class="highlight"><pre>      <span class="nx">unless</span> <span class="p">(</span><span class="nx">_options</span><span class="p">.</span><span class="nx">MAX_WORKERS_TO_TEST_FOR</span> <span class="o">and</span> <span class="nx">_options</span><span class="p">.</span><span class="nx">NUMBER_OF_TIMES_TO_BENCHMARK</span> <span class="o">and</span> <span class="nx">_options</span><span class="p">.</span><span class="nx">PATH_TO_WORKER_SCRIPT</span><span class="p">)</span>
-        <span class="k">throw</span> <span class="nb">Error</span> <span class="s">&#39;WorkerBench.init() must be called before WorkerBench.run() is called.&#39;</span></pre></div>             </td>           </tr>                               <tr id="section-17">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-17">&#182;</a>               </div>               <blockquote>
-  <p>Otherwise <a href="#run"><strong><code>_run</code></strong></a> is called and the benchmark tests begin.</p>
-</blockquote>             </td>             <td class="code">               <div class="highlight"><pre>      <span class="k">else</span>
-        <span class="nx">_run</span><span class="p">()</span></pre></div>             </td>           </tr>                               <tr id="section-18">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-18">&#182;</a>               </div>               <h2>Private Functions:</h2>
+        
+          <div class='highlight'><pre><span class="hljs-function"><span class="hljs-title">WBFactory</span> = -&gt;</span>
+  WB = <span class="hljs-keyword">do</span><span class="hljs-function"> -&gt;</span></pre></div>
+        
+      
+        
+        <p>First, we have to check that the <strong>Worker</strong> constructor is available, and if
+not, create default functions that let the user know that the benchmark tests
+can’t be run without <strong>Workers</strong>.</p>
 
-<hr />             </td>             <td class="code">               <div class="highlight"><pre></pre></div>             </td>           </tr>                               <tr id="section-19">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-19">&#182;</a>               </div>               <blockquote>
-  <h2><section id='run'><strong>_run:</strong></section></h2>
-  
-  <p><strong><code>_run</code></strong> is used to run the next step of the benchmark process. It is a recursive function, as it is called from the end of the <a href="#finished"><strong><code>_finishedBenchmark</code></strong></a> function. The recursion is based on the <strong><code>workersPerBenchmark</code></strong> array, which contains a list of numbers, each representing a number of <strong>WebWorkers</strong> to use for a benchmark test. If there are any values left in <strong><code>workersPerBenchmark</code></strong>, there are more benchmark tests to run and the recursion continues. If <strong><code>workersPerBenchmark</code></strong> is empty, the benchmarks are all completed, so the <a href="#result"><strong><code>WorkerBench.result</code></strong></a> function is updated to return the results of the benchmarks and the recursion is terminated.</p>
-</blockquote>             </td>             <td class="code">               <div class="highlight"><pre>    
-    <span class="nv">_run = </span><span class="nf">(workersPerBenchmark = [1.._options.MAX_WORKERS_TO_TEST_FOR], results = {}) -&gt;</span>
-        </pre></div>             </td>           </tr>                               <tr id="section-20">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-20">&#182;</a>               </div>               <blockquote>
-  <p>First, we look to see if there are any more benchmark tests to be completed, and if there are, we run the next test.</p>
-</blockquote>             </td>             <td class="code">               <div class="highlight"><pre>      <span class="k">if</span> <span class="nx">workersPerBenchmark</span><span class="p">.</span><span class="nx">length</span> <span class="o">isnt</span> <span class="mi">0</span>
-        <span class="nx">_runBenchmark</span> <span class="nx">workersPerBenchmark</span><span class="p">,</span> <span class="nx">results</span></pre></div>             </td>           </tr>                               <tr id="section-21">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-21">&#182;</a>               </div>               <blockquote>
-  <p>Otherwise, the benchmarking is completed, and we can assign the best result (as determined by the <a href="#generate"><strong><code>_generateResult</code></strong></a> function) to the <strong><code>WorkerBench.result</code></strong> function, and report the result to the user.</p>
-</blockquote>             </td>             <td class="code">               <div class="highlight"><pre>      <span class="k">else</span>
-        <span class="nv">WorkerBench.result = </span><span class="o">-&gt;</span> <span class="nx">_generateResult</span> <span class="nx">results</span>
-        <span class="nx">console</span><span class="p">.</span><span class="nx">log</span> <span class="s">&quot;Optimum Web Workers: </span><span class="si">#{</span><span class="nx">WorkerBench</span><span class="p">.</span><span class="nx">result</span><span class="p">()</span><span class="si">}</span><span class="s">&quot;</span>
-        <span class="nx">console</span><span class="p">.</span><span class="nx">log</span> <span class="s">&quot;Benchmarks took: </span><span class="si">#{</span><span class="nx">performance</span><span class="p">.</span><span class="nx">now</span><span class="p">()</span> <span class="o">-</span> <span class="nx">performance</span><span class="p">.</span><span class="nx">initTime</span><span class="si">}</span><span class="s">.&quot;</span>
-        <span class="nx">_options</span><span class="p">.</span><span class="nx">ON_COMPLETE</span><span class="p">()</span></pre></div>             </td>           </tr>                               <tr id="section-22">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-22">&#182;</a>               </div>               <blockquote>
-  <h2><section id='benchmark'><strong>_runBenchmark:</strong></section></h2>
-  
-  <p><strong><code>_runBenchmark</code></strong> performs most of the heavy lifting of this tool. It creates the <strong>WebWorkers</strong> for a benchmark test, and measures the results. After the test is completed, it relies on <a href="#finished"><strong><code>_finishedBenchmark</code></strong></a> to tidy up the resulting data and report back to <a href="#run"><strong><code>_run</code></strong></a> to get the next test.</p>
-</blockquote>             </td>             <td class="code">               <div class="highlight"><pre>    
-    <span class="nv">_runBenchmark = </span><span class="nf">(workersPerBenchmark, results, finished = [], workers = []) -&gt;</span></pre></div>             </td>           </tr>                               <tr id="section-23">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-23">&#182;</a>               </div>               <blockquote>
-  <p>First, we get the number of <strong>WebWorkers</strong> that will be required for this test, and determine the length of time that the <strong>Worker</strong> thread will timeout for. This timeout is key to the operation of this tool. The more <strong>Workers</strong> that the device can handle, the shorter the time for all the tasks to complete should be. When the browser can't maintain some number of <strong>Workers</strong> there is an increase in the time taken to finish the test, which lets us make a good guess at the best number of <strong>Workers</strong> to use for the device.</p>
-</blockquote>             </td>             <td class="code">               <div class="highlight"><pre>      <span class="nv">nWorkers = </span><span class="nx">workersPerBenchmark</span><span class="p">.</span><span class="nx">shift</span><span class="p">()</span>
-      <span class="nv">timeout = </span><span class="mi">100</span> <span class="o">/</span> <span class="nx">nWorkers</span>
-      </pre></div>             </td>           </tr>                               <tr id="section-24">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-24">&#182;</a>               </div>               <blockquote>
-  <p><strong><code>onMessage</code></strong> is the handler for the <code>'message'</code> event, which is fired when one of the generated <strong>WebWorkers</strong> sents a message back to the main thread to tell it that it is finished. We keep track of the number of messages received, and call the <a href="#finished"><strong><code>_finishedBenchmark</code></strong></a> function when the test is complete.</p>
-</blockquote>             </td>             <td class="code">               <div class="highlight"><pre>      <span class="nv">onMessage = </span><span class="p">(</span><span class="nx">e</span><span class="p">)</span> <span class="o">=&gt;</span>
-        <span class="nx">finished</span><span class="p">.</span><span class="nx">push</span> <span class="nx">e</span><span class="p">.</span><span class="nx">data</span>
-        <span class="k">if</span> <span class="nx">finished</span><span class="p">.</span><span class="nx">length</span> <span class="o">is</span> <span class="nx">nWorkers</span>
-          <span class="nx">results</span><span class="p">[</span><span class="nx">nWorkers</span><span class="p">]</span> <span class="o">?=</span> <span class="p">[]</span>
-          <span class="nx">results</span><span class="p">[</span><span class="nx">nWorkers</span><span class="p">].</span><span class="nx">push</span> <span class="p">(</span><span class="nx">performance</span><span class="p">.</span><span class="nx">now</span><span class="p">()</span> <span class="o">-</span> <span class="nx">start</span><span class="p">)</span>
-          <span class="nx">worker</span><span class="p">.</span><span class="nx">terminate</span><span class="p">()</span> <span class="k">for</span> <span class="nx">worker</span> <span class="k">in</span> <span class="nx">workers</span>
-          <span class="nx">_finishedBenchmark</span> <span class="nx">nWorkers</span><span class="p">,</span> <span class="nx">workersPerBenchmark</span><span class="p">,</span> <span class="nx">results</span>
-          </pre></div>             </td>           </tr>                               <tr id="section-25">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-25">&#182;</a>               </div>               <blockquote>
-  <p>When starting the <strong>Workers</strong>, we do things in a certain order, to minimise the difference in their running times. First, we create the correct number of workers, and add the <strong><code>onMessage</code></strong> handler to each of them.</p>
-</blockquote>             </td>             <td class="code">               <div class="highlight"><pre>      
-      <span class="k">for</span> <span class="nx">n</span> <span class="k">in</span> <span class="p">[</span><span class="mi">0</span><span class="p">...</span><span class="nx">nWorkers</span><span class="p">]</span>
-        <span class="nx">workers</span><span class="p">[</span><span class="nx">n</span><span class="p">]</span> <span class="o">=</span> <span class="k">new</span> <span class="nx">Worker</span><span class="p">(</span><span class="s">&quot;</span><span class="si">#{</span><span class="nx">_options</span><span class="p">.</span><span class="nx">PATH_TO_WORKER_SCRIPT</span><span class="si">}</span><span class="s">/worker.js&quot;</span><span class="p">)</span>
-        <span class="nx">workers</span><span class="p">[</span><span class="nx">n</span><span class="p">].</span><span class="nx">addEventListener</span> <span class="s">&#39;message&#39;</span><span class="p">,</span> <span class="nx">onMessage</span></pre></div>             </td>           </tr>                               <tr id="section-26">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-26">&#182;</a>               </div>               <blockquote>
-  <p>Then, we get the time that the test started,</p>
-</blockquote>             </td>             <td class="code">               <div class="highlight"><pre>    
-      <span class="nv">start = </span><span class="nx">performance</span><span class="p">.</span><span class="nx">now</span><span class="p">()</span>
-      </pre></div>             </td>           </tr>                               <tr id="section-27">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-27">&#182;</a>               </div>               <blockquote>
-  <p>And finally, post a message to each of the already created threads, which begins the benchmark test.</p>
-</blockquote>             </td>             <td class="code">               <div class="highlight"><pre>      <span class="k">for</span> <span class="nx">n</span> <span class="k">in</span> <span class="p">[</span><span class="mi">0</span><span class="p">...</span><span class="nx">nWorkers</span><span class="p">]</span>
-        <span class="nx">workers</span><span class="p">[</span><span class="nx">n</span><span class="p">].</span><span class="nx">postMessage</span> <span class="nx">timeout</span></pre></div>             </td>           </tr>                               <tr id="section-28">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-28">&#182;</a>               </div>               <blockquote>
-  <h2><section id='finished'><strong>_finishedBenchmark:</strong></section></h2>
-  
-  <p><strong><code>_finishedBenchmark</code></strong> has three main tasks:</p>
-</blockquote>             </td>             <td class="code">               <div class="highlight"><pre>    
-    <span class="nv">_finishedBenchmark = </span><span class="nf">(nWorkers, workersPerBenchmark, results) -&gt;</span>
-    </pre></div>             </td>           </tr>                               <tr id="section-29">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-29">&#182;</a>               </div>               <blockquote>
-  <ol>
-  <li><p>Determining the number of <strong>WebWorkers</strong> to use in the next benchmark.</p></li>
-  <li><p>Removing outlying results - the highest and lowest from the set.</p></li>
-  <li><p>Watching for when the result times begin to increase, indicating the optimum amount of <strong>Workers</strong> has passed.</p></li>
-  </ol>
-</blockquote>             </td>             <td class="code">               <div class="highlight"><pre>      </pre></div>             </td>           </tr>                               <tr id="section-30">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-30">&#182;</a>               </div>               <blockquote>
-  <p>If the test needs to be run again with the same number of <strong>Workers</strong>, the previous value is added to the start of the <strong><code>workersPerBenchmark</code></strong> list.</p>
-</blockquote>             </td>             <td class="code">               <div class="highlight"><pre>      <span class="k">if</span> <span class="nx">results</span><span class="p">[</span><span class="nx">nWorkers</span><span class="p">].</span><span class="nx">length</span> <span class="o">&lt;</span> <span class="nx">_options</span><span class="p">.</span><span class="nx">NUMBER_OF_TIMES_TO_BENCHMARK</span>
-        <span class="nx">workersPerBenchmark</span><span class="p">.</span><span class="nx">unshift</span> <span class="nx">nWorkers</span></pre></div>             </td>           </tr>                               <tr id="section-31">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-31">&#182;</a>               </div>               <blockquote>
-  <p>Otherwise, the data for the previous number of <strong>Workers</strong> is collated:</p>
-</blockquote>             </td>             <td class="code">               <div class="highlight"><pre>      <span class="k">else</span></pre></div>             </td>           </tr>                               <tr id="section-32">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-32">&#182;</a>               </div>               <blockquote>
-  <ul>
-  <li>If the tests were ran <code>3</code> or more times, the highest and lowest values are discarded.</li>
-  </ul>
-</blockquote>             </td>             <td class="code">               <div class="highlight"><pre>        <span class="k">if</span> <span class="nx">_options</span><span class="p">.</span><span class="nx">NUMBER_OF_TIMES_TO_BENCHMARK</span> <span class="o">&gt;</span> <span class="mi">2</span>
-          <span class="nx">results</span><span class="p">[</span><span class="nx">nWorkers</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="nx">results</span><span class="p">[</span><span class="nx">nWorkers</span><span class="p">].</span><span class="nx">sort</span><span class="p">())[</span><span class="mi">1</span><span class="p">...</span><span class="nx">results</span><span class="p">[</span><span class="nx">nWorkers</span><span class="p">].</span><span class="nx">length</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span></pre></div>             </td>           </tr>                               <tr id="section-33">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-33">&#182;</a>               </div>               <blockquote>
-  <ul>
-  <li>The average of the remaining results is taken as the result for that number of <strong>Workers</strong>.</li>
-  </ul>
-</blockquote>             </td>             <td class="code">               <div class="highlight"><pre>        <span class="nx">results</span><span class="p">[</span><span class="nx">nWorkers</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="nx">results</span><span class="p">[</span><span class="nx">nWorkers</span><span class="p">].</span><span class="nx">reduce</span> <span class="nf">(sum, next) -&gt;</span> <span class="nx">sum</span> <span class="o">+</span> <span class="nx">next</span><span class="p">)</span> <span class="o">/</span> <span class="nx">_options</span><span class="p">.</span><span class="nx">NUMBER_OF_TIMES_TO_BENCHMARK</span></pre></div>             </td>           </tr>                               <tr id="section-34">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-34">&#182;</a>               </div>               <blockquote>
-  <ul>
-  <li>If the time taken has increased over the last two sets of benchmarks, the <strong><code>workersPerBenchmark</code></strong> list is emptied, which will terminate the tests.</li>
-  </ul>
-</blockquote>             </td>             <td class="code">               <div class="highlight"><pre>        <span class="k">if</span> <span class="nx">nWorkers</span> <span class="o">&gt;</span> <span class="mi">2</span> <span class="o">and</span> <span class="nx">results</span><span class="p">[</span><span class="nx">nWorkers</span><span class="p">]</span> <span class="o">&gt;</span> <span class="nx">results</span><span class="p">[</span><span class="nx">nWorkers</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">and</span> <span class="nx">results</span><span class="p">[</span><span class="nx">nWorkers</span><span class="p">]</span> <span class="o">&gt;</span> <span class="nx">results</span><span class="p">[</span><span class="nx">nWorkers</span> <span class="o">-</span> <span class="mi">2</span><span class="p">]</span>
-          <span class="nv">workersPerBenchmark = </span><span class="p">[]</span></pre></div>             </td>           </tr>                               <tr id="section-35">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-35">&#182;</a>               </div>               <blockquote>
-  <p>The <strong><code>workersPerBenchmark</code></strong> list is passed back to the <a href="#run"><strong><code>_run</code></strong></a> function, which will either continue, or terminate the benchmarking process.</p>
-</blockquote>             </td>             <td class="code">               <div class="highlight"><pre>      <span class="nx">_run</span> <span class="nx">workersPerBenchmark</span><span class="p">,</span> <span class="nx">results</span></pre></div>             </td>           </tr>                               <tr id="section-36">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-36">&#182;</a>               </div>               <blockquote>
-  <h2><section id='generate'><strong>_generateResult:</strong></section></h2>
-  
-  <p><strong><code>_generateResult</code></strong> simply looks through the set of results and picks the smallest time taken to complete the set of tasks. This value should be the optimum number of <strong>WebWorkers</strong> to run on the current device.</p>
-</blockquote>             </td>             <td class="code">               <div class="highlight"><pre>    
-    <span class="nv">_generateResult = </span><span class="nf">(results) -&gt;</span>
-      <span class="nv">smallestTime = </span><span class="kc">Infinity</span>
-      <span class="nv">bestNWorkers = </span><span class="mi">0</span>
-      <span class="k">for</span> <span class="nx">own</span> <span class="nx">nWorkers</span><span class="p">,</span> <span class="nx">result</span> <span class="k">of</span> <span class="nx">results</span>
-        <span class="k">if</span> <span class="nx">result</span> <span class="o">&lt;</span> <span class="nx">smallestTime</span>
-          <span class="nv">smallestTime = </span><span class="nx">result</span>
-          <span class="nv">bestNWorkers = </span><span class="nx">nWorkers</span>
-      <span class="nx">bestNWorkers</span>
-      </pre></div>             </td>           </tr>                               <tr id="section-37">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-37">&#182;</a>               </div>               <p>The <a href="#workerbench"><strong><code>WorkerBench</code></strong></a> module is then returned to the main scope.</p>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="nx">WorkerBench</span>
-<span class="p">)()</span></pre></div>             </td>           </tr>                               <tr id="section-38">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-38">&#182;</a>               </div>               <h1>Initialisation:</h1>
+        
+          <div class='highlight'><pre>    <span class="hljs-keyword">unless</span> Worker?
+      <span class="hljs-function"><span class="hljs-title">unavailable</span> = -&gt;</span>
+        _log <span class="hljs-string">'WebWorkers are not available.'</span>
+        <span class="hljs-literal">false</span>
+      setup = start = result = workersAvailable = unavailable</pre></div>
+        
+      
+        
+        <p>Provided that the <strong>Worker</strong> constructor is available, which means that we can create
+<strong>WebWorkers</strong>, we create the rest of the <a href="#WorkerBench"><strong><code>WorkerBench</code></strong></a> module:</p>
 
-<hr />             </td>             <td class="code">               <div class="highlight"><pre></pre></div>             </td>           </tr>                               <tr id="section-39">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-39">&#182;</a>               </div>               <p>Once the <a href="#workerbench"><strong><code>WorkerBench</code></strong></a> module has been created, this script automatically calls the <a href="#init"><strong><code>WorkerBench.init</code></strong></a> and <a href="#start"><strong><code>WorkerBench.start</code></strong></a> function, which initialises and launches the benchmark test. It is then up to the user to access the <a href="#result"><strong><code>WorkerBench.result</code></strong></a> function to get the best amount of <strong>WebWorkers</strong> to use for their application.</p>             </td>             <td class="code">               <div class="highlight"><pre><span class="nx">WorkerBench</span><span class="p">.</span><span class="nx">init</span><span class="p">()</span>
-<span class="nx">WorkerBench</span><span class="p">.</span><span class="nx">start</span><span class="p">()</span></pre></div>             </td>           </tr>                               <tr id="section-40">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-40">&#182;</a>               </div>               <h1>Exports:</h1>
+        
+          <div class='highlight'><pre>    <span class="hljs-keyword">else</span></pre></div>
+        
+      
+        
+        <h2 id="-section-id-privatevariables-private-variables-section-"><section id="PrivateVariables">Private Variables</section></h2>
+<hr>
+<p><strong><code>_inittime</code></strong> is set each time the <a href="#start"><strong><code>WorkerBench.start</code></strong></a> function is called.
+It is used to measure the time that the benchmark tests take.</p>
 
-<hr />             </td>             <td class="code">               <div class="highlight"><pre></pre></div>             </td>           </tr>                               <tr id="section-41">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-41">&#182;</a>               </div>               <p>The <a href="#workerbench"><strong><code>WorkerBench</code></strong></a> module is added to the global <strong><code>root</code></strong> object, which allows external access to the <a href="#init"><strong><code>WorkerBench.init</code></strong></a>, <a href="#start"><strong><code>WorkerBench.start</code></strong></a>, <a href="#workersAvailable"><strong><code>WorkerBench.workersAvailable</code></strong></a> and <a href="#result"><strong><code>WorkerBench.result</code></strong></a> functions.</p>             </td>             <td class="code">               <div class="highlight"><pre><span class="nv">root = </span><span class="nx">exports</span> <span class="o">?</span> <span class="k">this</span>
-<span class="nv">root.WorkerBench = </span><span class="nx">WorkerBench</span>
+        
+          <div class='highlight'><pre>      _inittime = <span class="hljs-literal">null</span></pre></div>
+        
+      
+        
+        <p><strong><code>_result</code></strong> is set whenever the benchmark tests are completed. It is available to the
+user via the <a href="#result"><strong><code>WorkerBench.result</code></strong></a> function.</p>
 
-</pre></div>             </td>           </tr>                </tbody>     </table>   </div> </body> </html> 
+        
+          <div class='highlight'><pre>      _result = <span class="hljs-literal">null</span></pre></div>
+        
+      
+        
+        <p><strong><code>_options</code></strong> is first set with the deafult benchmark options, which can be changed via
+the <a href="#setup"><strong><code>WorkerBench.setup</code></strong></a> function.</p>
+
+        
+          <div class='highlight'><pre>      _options =
+        <span class="hljs-attribute">MAX_WORKERS_TO_TEST_FOR</span>: <span class="hljs-number">8</span>
+        <span class="hljs-attribute">NUMBER_OF_TIMES_TO_BENCHMARK</span>: <span class="hljs-number">5</span>
+        <span class="hljs-attribute">PATH_TO_WORKER_SCRIPT</span>: <span class="hljs-string">'.'</span>
+        <span class="hljs-attribute">ON_COMPLETE</span>: <span class="hljs-function"><span class="hljs-params">(result)</span> -&gt;</span> alert <span class="hljs-string">"Optimum Web Workers: <span class="hljs-subst">#{result}</span>"</span></pre></div>
+        
+      
+        
+        <h2 id="-section-id-privatefunctions-private-functions-section-"><section id="PrivateFunctions">Private Functions</section></h2>
+<hr>
+<h2 id="-section-id-run-_run-section-"><section id="run">_run:</section></h2>
+
+        
+          <div class='highlight'><pre>      <span class="hljs-function"><span class="hljs-title">_run</span> = <span class="hljs-params">(workersPerBenchmark, results = {})</span> -&gt;</span></pre></div>
+        
+      
+        
+        <p><strong><code>_run</code></strong> is used to run the next step of the benchmark process. It is a
+recursive function, as it is called from the <a href="#finishedBenchmark"><code>_finishedBenchmark</code></a>
+function. The recursion is based on the <strong><code>workersPerBenchmark</code></strong> array,
+which contains a list of numbers which represent a number of <strong>WebWorkers</strong>
+to use for a benchmark test. If there are any values left in
+<strong><code>workersPerBenchmark</code></strong>, there are more benchmark tests to run and the
+recursion continues. If <strong><code>workersPerBenchmark</code></strong> is empty, the benchmarks
+are all completed, so the <a href="#result"><strong><code>WorkerBench.result</code></strong></a> function is
+updated to return the results of the benchmarks and the recursion is
+terminated.</p>
+<p>First, we look to see if there are any more benchmark tests to be completed,
+and if there are, we run the next test.</p>
+
+        
+          <div class='highlight'><pre>        <span class="hljs-keyword">if</span> workersPerBenchmark.length <span class="hljs-keyword">isnt</span> <span class="hljs-number">0</span>
+          _runBenchmark workersPerBenchmark, results</pre></div>
+        
+      
+        
+        <p>Otherwise, the benchmarking is completed, and we can assign the best result
+(as determined by the <a href="#generateResult"><strong><code>_generateResult</code></strong></a> function) to the
+<strong><code>WorkerBench.result</code></strong> function, and report the result to the user.</p>
+
+        
+          <div class='highlight'><pre>        <span class="hljs-keyword">else</span>
+          _result = _generateResult results
+          _log <span class="hljs-string">"Optimum Web Workers: <span class="hljs-subst">#{WorkerBench.result()}</span>"</span>
+          _log <span class="hljs-string">"Benchmarks took: <span class="hljs-subst">#{performance.now() - _inittime }</span>."</span>
+          _options.ON_COMPLETE _result</pre></div>
+        
+      
+        
+        <h2 id="-section-id-runbenchmark-_runbenchmark-section-"><section id="runBenchmark">_runBenchmark:</section></h2>
+
+        
+          <div class='highlight'><pre>      <span class="hljs-function"><span class="hljs-title">_runBenchmark</span> = <span class="hljs-params">(workersPerBenchmark, results, finished = [], workers = [])</span> -&gt;</span></pre></div>
+        
+      
+        
+        <p><strong><code>_runBenchmark</code></strong> performs most of the heavy lifting. It creates the
+<strong>WebWorkers</strong> for a benchmark test, and measures the results. After
+the test is completed, it relies on <a href="#finishedBenchmark"><code>_finishedBenchmark</code></a> to tidy
+up the resulting data and report back to <a href="#run"><code>_run</code></a> to get the next
+test.</p>
+<p>First, we get the number of <strong>WebWorkers</strong> that will be required for this test,
+and determine the length of time that the <strong>Worker</strong> thread will timeout for.
+This timeout is key to the operation of this tool. The more <strong>Workers</strong> that
+the device can handle, the shorter the time for all the tasks to complete
+should be. When the browser can’t maintain some number of <strong>Workers</strong> there
+is an increase in the time taken to finish the test, which lets us make a good
+guess at the best number of <strong>Workers</strong> to use for the device.</p>
+
+        
+          <div class='highlight'><pre>        nWorkers = workersPerBenchmark.shift()
+        timeout = <span class="hljs-number">100</span> / nWorkers</pre></div>
+        
+      
+        
+        <p><code>_onMessage</code> is the handler for the <code>&#39;message&#39;</code> event, which is fired when
+one of the generated <strong>WebWorkers</strong> sents a message back to the main thread to
+tell it that it is finished. We keep track of the number of messages received,
+and call the <a href="#finishedBenchmark"><code>_finishedBenchmark</code></a> function when the test is complete.</p>
+
+        
+          <div class='highlight'><pre>        <span class="hljs-function"><span class="hljs-title">_onMessage</span> = <span class="hljs-params">(e)</span> -&gt;</span>
+          finished.push e.data
+          <span class="hljs-keyword">if</span> finished.length <span class="hljs-keyword">is</span> nWorkers
+            results[nWorkers] ?= []
+            results[nWorkers].push (performance.now() - startTime)
+            workers.map <span class="hljs-function"><span class="hljs-params">(worker)</span> -&gt;</span> worker.terminate()
+            _finishedBenchmark nWorkers, workersPerBenchmark, results</pre></div>
+        
+      
+        
+        <p>When starting the <strong>Workers</strong>, we do things in a certain order, to minimise the
+difference in their running times. First, we create the correct number of
+workers, and add the <code>_onMessage</code> handler to each of them.</p>
+
+        
+          <div class='highlight'><pre>        [<span class="hljs-number">0.</span>..nWorkers].map <span class="hljs-function"><span class="hljs-params">(n)</span> -&gt;</span>
+          workers[n] = <span class="hljs-keyword">new</span> Worker(<span class="hljs-string">"<span class="hljs-subst">#{_options.PATH_TO_WORKER_SCRIPT}</span>/worker.min.js"</span>)
+          workers[n].addEventListener <span class="hljs-string">'message'</span>, _onMessage</pre></div>
+        
+      
+        
+        <p>Then, we get the time that the test started,</p>
+
+        
+          <div class='highlight'><pre>        startTime = performance.now()</pre></div>
+        
+      
+        
+        <p>And finally, post a message to each of the already created threads, which
+begins the benchmark test.</p>
+
+        
+          <div class='highlight'><pre>        workers.map <span class="hljs-function"><span class="hljs-params">(worker)</span> -&gt;</span> worker.postMessage timeout</pre></div>
+        
+      
+        
+        <h2 id="-section-id-finishedbenchmark-_finishedbenchmark-section-"><section id="finishedBenchmark">_finishedBenchmark:</section></h2>
+
+        
+          <div class='highlight'><pre>      <span class="hljs-function"><span class="hljs-title">_finishedBenchmark</span> = <span class="hljs-params">(nWorkers, workersPerBenchmark, results)</span> -&gt;</span></pre></div>
+        
+      
+        
+        <p><strong><code>_finishedBenchmark</code></strong> has three main tasks:</p>
+<ol>
+<li><p>Determining the number of <strong>WebWorkers</strong> to use in the next benchmark.</p>
+</li>
+<li><p>Removing outlying results - the highest and lowest from the set.</p>
+</li>
+<li><p>Watching for when the result times begin to increase, indicating the
+optimum amount of <strong>Workers</strong> has passed.</p>
+</li>
+</ol>
+<p>If the test needs to be run again with the same number of <strong>Workers</strong>, the
+previous value is added to the start of the <strong><code>workersPerBenchmark</code></strong> list.</p>
+
+        
+          <div class='highlight'><pre>        <span class="hljs-keyword">if</span> results[nWorkers].length &lt; _options.NUMBER_OF_TIMES_TO_BENCHMARK
+          workersPerBenchmark.unshift nWorkers</pre></div>
+        
+      
+        
+        <p>Otherwise, the data for the previous number of <strong>Workers</strong> is collated:</p>
+
+        
+          <div class='highlight'><pre>        <span class="hljs-keyword">else</span></pre></div>
+        
+      
+        
+        <p>If the tests were ran <code>3</code> or more times, the highest and lowest values are
+discarded.</p>
+
+        
+          <div class='highlight'><pre>          <span class="hljs-keyword">if</span> _options.NUMBER_OF_TIMES_TO_BENCHMARK &gt; <span class="hljs-number">2</span>
+            sortedResults = results[nWorkers].sort()
+            results[nWorkers] = sortedResults[<span class="hljs-number">1.</span>..results[nWorkers].length - <span class="hljs-number">1</span>]</pre></div>
+        
+      
+        
+        <p>Then the average of the remaining results is taken as the result for that number
+of <strong>Workers</strong>.</p>
+
+        
+          <div class='highlight'><pre>          results[nWorkers] = <span class="hljs-function"><span class="hljs-params">(results[nWorkers].reduce (sum, next) -&gt; 
+            sum + next)</span> / <span class="hljs-title">_options</span>.<span class="hljs-title">NUMBER_OF_TIMES_TO_BENCHMARK</span>
+
+</span></pre></div>
+        
+      
+        
+        <p>If the time taken has increased over the last two sets of benchmarks, the
+<strong><code>workersPerBenchmark</code></strong> list is emptied, which will terminate the tests.</p>
+
+        
+          <div class='highlight'><pre>          resultN = results[nWorkers]
+          resultP = results[nWorkers - <span class="hljs-number">1</span>]
+          resultPP = results[nWorkers - <span class="hljs-number">2</span>]
+
+          <span class="hljs-keyword">if</span> nWorkers &gt; <span class="hljs-number">2</span> <span class="hljs-keyword">and</span> resultN &gt; resultP <span class="hljs-keyword">and</span> resultN &gt; resultPP 
+            workersPerBenchmark = []</pre></div>
+        
+      
+        
+        <p>The <strong><code>workersPerBenchmark</code></strong> list is passed back to the <a href="#run"><code>_run</code></a>
+function, which will either continue, or terminate the benchmarking process.</p>
+
+        
+          <div class='highlight'><pre>        _run workersPerBenchmark, results</pre></div>
+        
+      
+        
+        <h2 id="-section-id-generateresult-_generateresult-section-"><section id="generateResult">_generateResult:</section></h2>
+
+        
+          <div class='highlight'><pre>    <span class="hljs-function"><span class="hljs-title">_generateResult</span> = <span class="hljs-params">(results, smallestTime = Infinity, bestNWorkers = <span class="hljs-number">0</span>)</span> -&gt;</span></pre></div>
+        
+      
+        
+        <p><strong><code>_generateResult</code></strong> simply looks through the set of results and picks the
+smallest time taken to complete the set of tasks. This value should be the
+optimum number of <strong>WebWorkers</strong> to run on the current device.</p>
+
+        
+          <div class='highlight'><pre>        <span class="hljs-keyword">for</span> own nWorkers, result <span class="hljs-keyword">of</span> results
+          <span class="hljs-keyword">if</span> result &lt; smallestTime
+            smallestTime = result
+            bestNWorkers = +nWorkers
+        bestNWorkers</pre></div>
+        
+      
+        
+        <h2 id="-section-id-publicfunctions-public-functions-section-"><section id="PublicFunctions">Public Functions</section></h2>
+<hr>
+<h3 id="-section-id-workersavailable-workerbench-workersavailable-section-"><section id="workersAvailable">WorkerBench.workersAvailable:</section></h3>
+<p><strong><code>WorkerBench.workersAvailable</code></strong> provides an easy <strong>boolean</strong> check for whether
+this browser can use <strong>WebWorkers</strong>. It can be used to provide different
+functionality for a page if <strong><code>Workers</code></strong> aren’t available.</p>
+
+        
+          <div class='highlight'><pre>      <span class="hljs-function"><span class="hljs-title">workersAvailable</span> = -&gt;</span>
+        _log <span class="hljs-string">'WebWorkers are available.'</span>
+        <span class="hljs-literal">true</span></pre></div>
+        
+      
+        
+        <h3 id="-section-id-setup-workerbench-setup-section-"><section id='setup'>WorkerBench.setup:</section></h3>
+<p><strong><code>WorkerBench.setup</code></strong> can be called before running the benchmarks. It allows
+the user to specify options for the benchmark tests, including:</p>
+<ul>
+<li><p><code>maxWorkersToTestFor</code> - The maximum number of <strong>WebWorkers</strong> that should be
+tested for. <em>Defaults to <code>8</code></em></p>
+</li>
+<li><p><code>numberOfTimesToBenchmark</code> - The number of times that the benchmark test
+should be run. Higher values yield more accurate results, but take longer to
+run. <em>Defaults to <code>5</code></em></p>
+</li>
+<li><p><code>pathToWorkerScript</code> - The path to the <a href="worker.html"><em>worker.js</em></a> file. <em>Defaults
+to <code>&#39;.&#39;</code></em></p>
+</li>
+<li><p><code>onComplete</code> - The function that is called when the test have been completed.
+<em>Defaults to <code>(result) -&gt; alert &quot;Optimum Web Workers: #{result}&quot;</code></em></p>
+</li>
+</ul>
+
+        
+          <div class='highlight'><pre>      <span class="hljs-function"><span class="hljs-title">setup</span> = <span class="hljs-params">(options = {})</span> -&gt;</span>
+        _options.MAX_WORKERS_TO_TEST_FOR ?= options.maxWorkersToTestFor
+        _options.NUMBER_OF_TIMES_TO_BENCHMARK ?= options.numberOfTimesToBenchmark
+        _options.PATH_TO_WORKER_SCRIPT ?= options.pathToWorkerScript
+        _options.ON_COMPLETE ?= options.onComplete</pre></div>
+        
+      
+        
+        <h3 id="-section-id-start-workerbench-start-section-"><section id="start">WorkerBench.start:</section></h3>
+<p><strong><code>WorkerBench.start</code></strong> is used to start the benchmark process. It resets the
+<em>_inittime</em> and calls the <a href="#run"><code>_run</code></a> function with the maximum number of
+<strong>Workers</strong> to try to run.</p>
+
+        
+          <div class='highlight'><pre>      <span class="hljs-function"><span class="hljs-title">start</span> = -&gt;</span>
+        _inittime = performance.now()
+        _run [<span class="hljs-number">1.</span>._options.MAX_WORKERS_TO_TEST_FOR]</pre></div>
+        
+      
+        
+        <h3 id="-section-id-result-workerbench-result-section-"><section id="result">WorkerBench.result:</section></h3>
+<p><strong><code>WorkerBench.result</code></strong> is initially set to just report that the benchmark
+hasn’t finished and to return <code>false</code>. When the benchmark has finished, it
+will return the optimum number of <strong>WebWorkers</strong> for the current device.</p>
+
+        
+          <div class='highlight'><pre>      <span class="hljs-function"><span class="hljs-title">result</span> = -&gt;</span>
+        <span class="hljs-keyword">if</span> _result
+          _result
+        <span class="hljs-keyword">else</span>
+          _log <span class="hljs-string">'Benchmark not yet complete.'</span>
+          <span class="hljs-literal">false</span>
+
+    { workersAvailable, setup, start, result }
+
+  WB.start()
+  WB</pre></div>
+        
+      
+        
+        <hr>
+<h2 id="-section-id-moduledefinition-module-definition-section-"><section id="ModuleDefinition">Module Definition</section></h2>
+<p><strong>WorkerBench</strong> tries to define itself as an AMD module, but will fall back to
+assigning itself to <code>window</code> if <code>define</code> isn’t available.</p>
+
+        
+          <div class='highlight'><pre><span class="hljs-function"><span class="hljs-title">createModule</span> = <span class="hljs-params">(factory)</span> -&gt;</span>
+  <span class="hljs-keyword">if</span> <span class="hljs-keyword">typeof</span> <span class="hljs-built_in">window</span>.define <span class="hljs-keyword">is</span> <span class="hljs-string">'function'</span> <span class="hljs-keyword">and</span> define.amd
+    define factory
+  <span class="hljs-keyword">else</span>
+    <span class="hljs-built_in">window</span>.WorkerBench = factory()
+
+createModule WBFactory</pre></div>
+        
+      
+      <div class="fleur">h</div>
+    </div>
+  </div>
+</body>
+</html>
