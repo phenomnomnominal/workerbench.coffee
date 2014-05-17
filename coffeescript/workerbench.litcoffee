@@ -1,12 +1,11 @@
 **WorkerBench** is a tool that can be used to determine an appropriate number
 of [**`WebWorkers`**][WW] to create when running tasks in parallel in the web
-browser. Currently, there is no mechanism for easy determining the best number
-of `WebWorkers` on a device-by-device basis. This tool works by running a
-series of benchmarking tests, where it spins up a group of `WebWorkers`, the
-number of which increases with each test. For each test, the `Worker` threads
-are kept busy for a period of time, and the time taken for the whole set of
-`WebWorkers` to complete is monitored. Eventually, there is some number of
-`Worker` instances where the browser can't maintain all the threads
+browser. It is an attempt at a polyfill of the [Hardware Concurrency API][API].
+It works by running a series of benchmarking tests, where it spins up a group of
+`WebWorkers`, the number of which increases with each test. For each test, the
+`Worker` threads are kept busy for a period of time, and the time taken for the
+whole set of `WebWorkers` to complete is monitored. Eventually, there is some
+number of `Worker` instances where the browser can't maintain all the threads
 simultaneously, and has to wait for one of the threads to finish before
 starting another. This cause a significant increase in the overall time taken.
 By finding the smallest time taken to run the tasks, **WorkerBench** determines
@@ -15,6 +14,7 @@ many `Worker` instances are appropriate for the current device. This estimate
 is of course dependent on what else the device is doing at the time.
 
 [WW]: http://www.whatwg.org/specs/web-apps/current-work/multipage/workers.html
+[API]: http://wiki.whatwg.org/wiki/Navigator_HW_Concurrency
 
 ___
 # <section id="Shims">Shims</section>
@@ -38,6 +38,15 @@ in other browsers, we re-assign each of the likely vendor prefixes to
       performance.oNow or
       -> new Date().getTime()
 
+## <section id="windowURL">window.URL:</section>
+
+In order to create a `Worker` inline, we need `window.URL.createObjectURL` which
+was prefixed in older versions of Webkit.
+
+    window.URL = do ->
+      window.URL or
+      window.webkitURL
+
 ___
 # <section id="Utitlities">Utilities</section>
 
@@ -47,9 +56,9 @@ We have a silly utility function just to make sure that `console.log` exists,
 and to wrap anything that is logged from **WorkerBench** so the user can see
 where the log came from.
 
-    _log = (message) ->
-      if console and console.log
-        console.log "WorkerBench says: '#{message}'"
+    _log = (message, type = 'log') ->
+      if console and console[type]
+        console[type] "WorkerBench says: '#{message}'"
 
 ___
 # <section id="WorkerBench">WorkerBench Factory</section>
@@ -74,13 +83,14 @@ not, create default functions that let the user know that the benchmark tests
 can't be run without **Workers**.
 
         unless Worker?
+          _result = 1
           unavailable = ->
             _log 'WebWorkers are not available.'
             false
-          setup = start = result = workersAvailable = unavailable
+          setup = start = workersAvailable = unavailable
 
-Provided that the **Worker** constructor is available, which means that we can create
-**WebWorkers**, we create the rest of the [**`WorkerBench`**][WB] module:
+Provided that the **Worker** constructor is available, which means that we can
+create **WebWorkers**, we create the rest of the [**`WorkerBench`**][WB] module:
 
 [WB]: #WorkerBench
 
@@ -89,28 +99,44 @@ Provided that the **Worker** constructor is available, which means that we can c
 ## <section id="PrivateVariables">Private Variables</section>
 ___
 
-**`_inittime`** is set each time the [**`WorkerBench.start`**][start] function is called.
-It is used to measure the time that the benchmark tests take.
+**`inlineWorkerFunction`** is an inline version of the script in [Worker.litcoffee][w]
+allowing us to create the `Worker` without needing to make more requests for the
+seperate file.
+
+[w]: /docs/worker.html
+
+          _inlineWorkerFunction = """
+                                  self.onmessage = function (e) {
+                                    var endTime = Date.now() + e.data;
+                                    while (Date.now() < endTime) {
+                                      (function() {})();
+                                    }
+                                    self.postMessage('Finished');
+                                  };
+                                  """
+
+**`_inittime`** is set each time the [**`WorkerBench.start`**][start] function
+is called. It is used to measure the time that the benchmark tests take.
 
 [start]: #start
 
           _inittime = null
 
-**`_result`** is set whenever the benchmark tests are completed. It is available to the
-user via the [**`WorkerBench.result`**][result] function.
+**`_result`** is set whenever the benchmark tests are completed. It is available
+to the user via the [**`WorkerBench.result`**][result] function.
 
 [result]: #result
 
           _result = null
 
-**`_options`** is first set with the deafult benchmark options, which can be changed via
-the [**`WorkerBench.setup`**][setup] function.
+**`_options`** is first set with the deafult benchmark options, which can be
+changed via the [**`WorkerBench.setup`**][setup] function.
 
 [setup]: #setup
 
           _options =
             MAX_WORKERS_TO_TEST_FOR: 8
-            NUMBER_OF_TIMES_TO_BENCHMARK: 5
+            NUMBER_OF_TIMES_TO_BENCHMARK: 9
             PATH_TO_WORKER_SCRIPT: '.'
             ON_COMPLETE: (result) -> alert "Optimum Web Workers: #{result}"
 
@@ -149,8 +175,9 @@ Otherwise, the benchmarking is completed, and we can assign the best result
 
             else
               _result = _generateResult results
-              _log "Optimum Web Workers: #{WorkerBench.result()}"
-              _log "Benchmarks took: #{performance.now() - _inittime }."
+              _log "Optimum Web Workers: #{result()}"
+              time = (performance.now() - _inittime) / 1000
+              _log "Benchmarks took: #{time} seconds."
               _options.ON_COMPLETE _result
 
 ## <section id="runBenchmark">_runBenchmark:</section>
@@ -197,7 +224,11 @@ difference in their running times. First, we create the correct number of
 workers, and add the `_onMessage` handler to each of them.
 
             [0...nWorkers].map (n) ->
-              workers[n] = new Worker("#{_options.PATH_TO_WORKER_SCRIPT}/worker.min.js")
+              if window.URL and window.URL.createObjectURL and window.Blob
+                blob = new Blob([_inlineWorkerFunction.toString()], type: 'text/javascript')
+                workers[n] = new Worker(window.URL.createObjectURL blob)
+              else
+                workers[n] = new Worker("#{_options.PATH_TO_WORKER_SCRIPT}/worker.min.js")
               workers[n].addEventListener 'message', _onMessage
 
 Then, we get the time that the test started,
@@ -242,7 +273,7 @@ discarded.
 Then the average of the remaining results is taken as the result for that number
 of **Workers**.
 
-              results[nWorkers] = (results[nWorkers].reduce (sum, next) -> 
+              results[nWorkers] = (results[nWorkers].reduce (sum, next) ->
                 sum + next) / _options.NUMBER_OF_TIMES_TO_BENCHMARK
 
 If the time taken has increased over the last two sets of benchmarks, the
@@ -252,7 +283,7 @@ If the time taken has increased over the last two sets of benchmarks, the
               resultP = results[nWorkers - 1]
               resultPP = results[nWorkers - 2]
 
-              if nWorkers > 2 and resultN > resultP and resultN > resultPP 
+              if nWorkers > 2 and resultN > resultP and resultN > resultPP
                 workersPerBenchmark = []
 
 The **`workersPerBenchmark`** list is passed back to the [`_run`][run]
@@ -270,9 +301,9 @@ function, which will either continue, or terminate the benchmarking process.
 smallest time taken to complete the set of tasks. This value should be the
 optimum number of **WebWorkers** to run on the current device.
 
-            for own nWorkers, result of results
-              if result < smallestTime
-                smallestTime = result
+            for own nWorkers, nResult of results
+              if nResult < smallestTime
+                smallestTime = nResult
                 bestNWorkers = +nWorkers
             bestNWorkers
 
@@ -294,7 +325,7 @@ functionality for a page if **`Workers`** aren't available.
 the user to specify options for the benchmark tests, including:
 
 * `maxWorkersToTestFor` - The maximum number of **WebWorkers** that should be
-tested for. *Defaults to `8`*
+tested for. *Defaults to `8`*, rounded up to the nearest power of two.
 
 * `numberOfTimesToBenchmark` - The number of times that the benchmark test
 should be run. Higher values yield more accurate results, but take longer to
@@ -308,11 +339,13 @@ to `'.'`*
 
 [worker]: worker.html
 
+          { pow, ceil, log, LN2 } = Math
           setup = (options = {}) ->
-            _options.MAX_WORKERS_TO_TEST_FOR ?= options.maxWorkersToTestFor
-            _options.NUMBER_OF_TIMES_TO_BENCHMARK ?= options.numberOfTimesToBenchmark
-            _options.PATH_TO_WORKER_SCRIPT ?= options.pathToWorkerScript
-            _options.ON_COMPLETE ?= options.onComplete  
+            maxWorkers = options.maxWorkersToTestFor or _options.MAX_WORKERS_TO_TEST_FOR
+            _options.MAX_WORKERS_TO_TEST_FOR = pow(2, ceil(log(maxWorkers) / LN2))
+            _options.NUMBER_OF_TIMES_TO_BENCHMARK = options.numberOfTimesToBenchmark or _options.NUMBER_OF_TIMES_TO_BENCHMARK
+            _options.PATH_TO_WORKER_SCRIPT = options.pathToWorkerScript or _options.PATH_TO_WORKER_SCRIPT
+            _options.ON_COMPLETE = options.onComplete or _options.ON_COMPLETE
 
 ### <section id="start">WorkerBench.start:</section>
 
@@ -322,9 +355,11 @@ to `'.'`*
 
 [run]: #run
 
-          start = ->
+          start = (callback) ->
+            if callback? and typeof callback is 'function'
+              _options.ON_COMPLETE = callback
             _inittime = performance.now()
-            _run [1.._options.MAX_WORKERS_TO_TEST_FOR]
+            _run [0..log(_options.MAX_WORKERS_TO_TEST_FOR) / LN2].map (n) -> pow 2, n
 
 ### <section id="result">WorkerBench.result:</section>
 
@@ -336,13 +371,28 @@ will return the optimum number of **WebWorkers** for the current device.
             if _result
               _result
             else
-              _log 'Benchmark not yet complete.'
+              _log 'Benchmark not yet complete.', 'warn'
               false
 
-        { workersAvailable, setup, start, result }
+**`navigator.getHardwareConcurrency`** and **`navigator.hardwareConcurrency`**
+are set so that **WorkerBench** can act as a polyfill for the
+[Hardware Concurrency API][API]
 
-      WB.start()
-      WB
+[API]: http://wiki.whatwg.org/wiki/Navigator_HW_Concurrency
+
+        if window?.navigator? and window.navigator.hardwareConcurrency
+          start = (callback = _options.ON_COMPLETE) ->
+            if callback? and typeof callback is 'function'
+              callback navigator.hardwareConcurrency
+
+          result = ->
+            navigator.hardwareConcurrency
+
+        if window?.navigator? and !window.navigator.hardwareConcurrency
+          navigator.getHardwareConcurrency = start
+          Object.defineProperty navigator, 'hardwareConcurrency', get: result
+
+        { workersAvailable, setup, start, result }
 
 ___
 ## <section id="ModuleDefinition">Module Definition</section>

@@ -1,14 +1,22 @@
-## workerbench.coffee (v1.1.0)
+## workerbench.coffee (v1.2.0)
 
-Need to use a whole bunch of [**WebWorkers**](http://www.whatwg.org/specs/web-apps/current-work/multipage/workers.html), but don't know what devices they will run on? Unfortunately, the spec doesn't define a mechanism to get any information about the capabilities of the device, so how can you know what the best number of **Workers** to launch is?
+Need to use a whole bunch of [**WebWorkers**](http://www.whatwg.org/specs/web-apps/current-work/multipage/workers.html), but don't know what devices they will run on? Unfortunately, there isn't an official spec that defines a mechanism to get any information about the capabilities of the device, so how can you know what the best number of **Workers** to launch is?
 
 **WorkerBench** is a tool designed to work it out for you! It runs a series of benchmark tests to make a reasonable guess about the best number of threads to run on a given device.
+
+### New in 1.2.0:
+
+There is now a [proposed API](http://wiki.whatwg.org/wiki/Navigator_HW_Concurrency) for finding out the number of cores that a device has! **WorkerBench** acts as a polyfill for this API by exposing the result of the benchmark tests as `navigator.hardwareConcurrency`.
 
 ## How to use:
 
 **WorkerBench** should be pretty straightforward to use! Download the CoffeeScript source and compile it to JavaScript (or just get the JS files from the repo) and include **workerbench.js** in your page.
 The only thing you need to think about is where the **worker.js** is in relation to the **workerbench.js** file.
 By default, it looks for **worker.js** to be in the same folder as **workerbench.js**, but the correct path can be provided as one of the initialisation options.
+
+### New in 1.2.0:
+
+**WorkerBench** will create the **WebWorkers** inline if the device has the supported APIs - this means fewer network calls for the seperate JS file!
 
 ## Initialisation:
 
@@ -19,7 +27,8 @@ By adding the script to the page, the tool will be run with the default configur
 These can then be called from any other script, as the **WorkerBench** module (with it's four public functions **workersAvailable**, **setup**, **start** and **result**) is attached to the global object. For example, the jQuery 'ready' function:
 
     $ ->
-      WorkerBench.start()
+      WorkerBench.start (result) ->
+        alert result
 
 The **WorkerBench.setup** function takes a configuration `_options` object, which currently accepts `4` options:
 

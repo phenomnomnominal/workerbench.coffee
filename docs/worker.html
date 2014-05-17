@@ -46,14 +46,14 @@
 <p><strong>Worker.litcoffee</strong> contains the code that is run each time a <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/workers.html"><strong><code>Worker</code></strong></a>
 is spawned as part of the benchmarking process.</p>
 <hr>
-<h1 id="-section-id-functions-functions-section-"><section id="Functions">Functions</section></h1>
-<h2 id="-section-id-benchmark-benchmark-section-"><section id='Benchmark'>benchmark:</section></h2>
-<p><strong><code>benchmark</code></strong> is the function that is run when the <strong><code>Worker</code></strong> receives a
-message from the main thread. It keeps this <strong><code>Worker</code></strong> thread busy for the
-period of time defined in <code>e.data</code>.</p>
+<h1 id="-section-id-workerscript-worker-script-section-"><section id="WorkerScript">Worker Script:</section></h1>
+<h2 id="-section-id-messagehandler-message-handler-section-"><section id='MessageHandler'>Message Handler:</section></h2>
+<p>This is the function that is run when the <strong><code>Worker</code></strong> receives a message from
+the main thread. It keeps this <strong><code>Worker</code></strong> thread busy for the period of time
+defined in <code>e.data</code>.</p>
 
         
-          <div class='highlight'><pre><span class="hljs-function"><span class="hljs-title">benchmark</span> = <span class="hljs-params">(e)</span> -&gt;</span></pre></div>
+          <div class='highlight'><pre>self.<span class="hljs-function"><span class="hljs-title">onmessage</span> = <span class="hljs-params">(e)</span> -&gt;</span></pre></div>
         
       
         
@@ -71,16 +71,6 @@ that it knows that we are done.</p>
 
         
           <div class='highlight'><pre>  self.postMessage <span class="hljs-string">'Finished'</span></pre></div>
-        
-      
-        
-        <hr>
-<h1 id="-section-id-initialisation-initialisation-section-"><section id="Initialisation">Initialisation</section></h1>
-<p>The <strong><code>benchmark</code></strong> function is attached to the listener for the
-<code>&#39;message&#39;</code> event.</p>
-
-        
-          <div class='highlight'><pre>self.addEventListener <span class="hljs-string">'message'</span>, benchmark</pre></div>
         
       
       <div class="fleur">h</div>

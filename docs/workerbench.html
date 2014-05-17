@@ -44,13 +44,12 @@
         
         <p><strong>WorkerBench</strong> is a tool that can be used to determine an appropriate number
 of <a href="http://www.whatwg.org/specs/web-apps/current-work/multipage/workers.html"><strong><code>WebWorkers</code></strong></a> to create when running tasks in parallel in the web
-browser. Currently, there is no mechanism for easy determining the best number
-of <code>WebWorkers</code> on a device-by-device basis. This tool works by running a
-series of benchmarking tests, where it spins up a group of <code>WebWorkers</code>, the
-number of which increases with each test. For each test, the <code>Worker</code> threads
-are kept busy for a period of time, and the time taken for the whole set of
-<code>WebWorkers</code> to complete is monitored. Eventually, there is some number of
-<code>Worker</code> instances where the browser can’t maintain all the threads
+browser. It is an attempt at a polyfill of the <a href="http://wiki.whatwg.org/wiki/Navigator_HW_Concurrency">Hardware Concurrency API</a>.
+It works by running a series of benchmarking tests, where it spins up a group of
+<code>WebWorkers</code>, the number of which increases with each test. For each test, the
+<code>Worker</code> threads are kept busy for a period of time, and the time taken for the
+whole set of <code>WebWorkers</code> to complete is monitored. Eventually, there is some
+number of <code>Worker</code> instances where the browser can’t maintain all the threads
 simultaneously, and has to wait for one of the threads to finish before
 starting another. This cause a significant increase in the overall time taken.
 By finding the smallest time taken to run the tasks, <strong>WorkerBench</strong> determines
@@ -78,6 +77,17 @@ performance.now = <span class="hljs-keyword">do</span><span class="hljs-function
         
       
         
+        <h2 id="-section-id-windowurl-window-url-section-"><section id="windowURL">window.URL:</section></h2>
+<p>In order to create a <code>Worker</code> inline, we need <code>window.URL.createObjectURL</code> which
+was prefixed in older versions of Webkit.</p>
+
+        
+          <div class='highlight'><pre><span class="hljs-built_in">window</span>.URL = <span class="hljs-keyword">do</span><span class="hljs-function"> -&gt;</span>
+  <span class="hljs-built_in">window</span>.URL <span class="hljs-keyword">or</span>
+  <span class="hljs-built_in">window</span>.webkitURL</pre></div>
+        
+      
+        
         <hr>
 <h1 id="-section-id-utitlities-utilities-section-"><section id="Utitlities">Utilities</section></h1>
 <h2 id="-section-id-log-_log-section-"><section id="log">_log:</section></h2>
@@ -86,9 +96,9 @@ and to wrap anything that is logged from <strong>WorkerBench</strong> so the use
 where the log came from.</p>
 
         
-          <div class='highlight'><pre><span class="hljs-function"><span class="hljs-title">_log</span> = <span class="hljs-params">(message)</span> -&gt;</span>
-  <span class="hljs-keyword">if</span> <span class="hljs-built_in">console</span> <span class="hljs-keyword">and</span> <span class="hljs-built_in">console</span>.log
-    <span class="hljs-built_in">console</span>.log <span class="hljs-string">"WorkerBench says: '<span class="hljs-subst">#{message}</span>'"</span></pre></div>
+          <div class='highlight'><pre><span class="hljs-function"><span class="hljs-title">_log</span> = <span class="hljs-params">(message, type = <span class="hljs-string">'log'</span>)</span> -&gt;</span>
+  <span class="hljs-keyword">if</span> <span class="hljs-built_in">console</span> <span class="hljs-keyword">and</span> <span class="hljs-built_in">console</span>[type]
+    <span class="hljs-built_in">console</span>[type] <span class="hljs-string">"WorkerBench says: '<span class="hljs-subst">#{message}</span>'"</span></pre></div>
         
       
         
@@ -112,15 +122,16 @@ can’t be run without <strong>Workers</strong>.</p>
 
         
           <div class='highlight'><pre>    <span class="hljs-keyword">unless</span> Worker?
+      _result = <span class="hljs-number">1</span>
       <span class="hljs-function"><span class="hljs-title">unavailable</span> = -&gt;</span>
         _log <span class="hljs-string">'WebWorkers are not available.'</span>
         <span class="hljs-literal">false</span>
-      setup = start = result = workersAvailable = unavailable</pre></div>
+      setup = start = workersAvailable = unavailable</pre></div>
         
       
         
-        <p>Provided that the <strong>Worker</strong> constructor is available, which means that we can create
-<strong>WebWorkers</strong>, we create the rest of the <a href="#WorkerBench"><strong><code>WorkerBench</code></strong></a> module:</p>
+        <p>Provided that the <strong>Worker</strong> constructor is available, which means that we can
+create <strong>WebWorkers</strong>, we create the rest of the <a href="#WorkerBench"><strong><code>WorkerBench</code></strong></a> module:</p>
 
         
           <div class='highlight'><pre>    <span class="hljs-keyword">else</span></pre></div>
@@ -129,29 +140,46 @@ can’t be run without <strong>Workers</strong>.</p>
         
         <h2 id="-section-id-privatevariables-private-variables-section-"><section id="PrivateVariables">Private Variables</section></h2>
 <hr>
-<p><strong><code>_inittime</code></strong> is set each time the <a href="#start"><strong><code>WorkerBench.start</code></strong></a> function is called.
-It is used to measure the time that the benchmark tests take.</p>
+<p><strong><code>inlineWorkerFunction</code></strong> is an inline version of the script in <a href="/docs/worker.html">Worker.litcoffee</a>
+allowing us to create the <code>Worker</code> without needing to make more requests for the
+seperate file.</p>
+
+        
+          <div class='highlight'><pre>      _inlineWorkerFunction = <span class="hljs-string">"""
+                              self.onmessage = function (e) {
+                                var endTime = Date.now() + e.data;
+                                while (Date.now() &lt; endTime) {
+                                  (function() {})();
+                                }
+                                self.postMessage('Finished');
+                              };
+                              """</span></pre></div>
+        
+      
+        
+        <p><strong><code>_inittime</code></strong> is set each time the <a href="#start"><strong><code>WorkerBench.start</code></strong></a> function
+is called. It is used to measure the time that the benchmark tests take.</p>
 
         
           <div class='highlight'><pre>      _inittime = <span class="hljs-literal">null</span></pre></div>
         
       
         
-        <p><strong><code>_result</code></strong> is set whenever the benchmark tests are completed. It is available to the
-user via the <a href="#result"><strong><code>WorkerBench.result</code></strong></a> function.</p>
+        <p><strong><code>_result</code></strong> is set whenever the benchmark tests are completed. It is available
+to the user via the <a href="#result"><strong><code>WorkerBench.result</code></strong></a> function.</p>
 
         
           <div class='highlight'><pre>      _result = <span class="hljs-literal">null</span></pre></div>
         
       
         
-        <p><strong><code>_options</code></strong> is first set with the deafult benchmark options, which can be changed via
-the <a href="#setup"><strong><code>WorkerBench.setup</code></strong></a> function.</p>
+        <p><strong><code>_options</code></strong> is first set with the deafult benchmark options, which can be
+changed via the <a href="#setup"><strong><code>WorkerBench.setup</code></strong></a> function.</p>
 
         
           <div class='highlight'><pre>      _options =
         <span class="hljs-attribute">MAX_WORKERS_TO_TEST_FOR</span>: <span class="hljs-number">8</span>
-        <span class="hljs-attribute">NUMBER_OF_TIMES_TO_BENCHMARK</span>: <span class="hljs-number">5</span>
+        <span class="hljs-attribute">NUMBER_OF_TIMES_TO_BENCHMARK</span>: <span class="hljs-number">9</span>
         <span class="hljs-attribute">PATH_TO_WORKER_SCRIPT</span>: <span class="hljs-string">'.'</span>
         <span class="hljs-attribute">ON_COMPLETE</span>: <span class="hljs-function"><span class="hljs-params">(result)</span> -&gt;</span> alert <span class="hljs-string">"Optimum Web Workers: <span class="hljs-subst">#{result}</span>"</span></pre></div>
         
@@ -192,8 +220,9 @@ and if there are, we run the next test.</p>
         
           <div class='highlight'><pre>        <span class="hljs-keyword">else</span>
           _result = _generateResult results
-          _log <span class="hljs-string">"Optimum Web Workers: <span class="hljs-subst">#{WorkerBench.result()}</span>"</span>
-          _log <span class="hljs-string">"Benchmarks took: <span class="hljs-subst">#{performance.now() - _inittime }</span>."</span>
+          _log <span class="hljs-string">"Optimum Web Workers: <span class="hljs-subst">#{result()}</span>"</span>
+          time = (performance.now() - _inittime) / <span class="hljs-number">1000</span>
+          _log <span class="hljs-string">"Benchmarks took: <span class="hljs-subst">#{time}</span> seconds."</span>
           _options.ON_COMPLETE _result</pre></div>
         
       
@@ -246,7 +275,11 @@ workers, and add the <code>_onMessage</code> handler to each of them.</p>
 
         
           <div class='highlight'><pre>        [<span class="hljs-number">0.</span>..nWorkers].map <span class="hljs-function"><span class="hljs-params">(n)</span> -&gt;</span>
-          workers[n] = <span class="hljs-keyword">new</span> Worker(<span class="hljs-string">"<span class="hljs-subst">#{_options.PATH_TO_WORKER_SCRIPT}</span>/worker.min.js"</span>)
+          <span class="hljs-keyword">if</span> <span class="hljs-built_in">window</span>.URL <span class="hljs-keyword">and</span> <span class="hljs-built_in">window</span>.URL.createObjectURL <span class="hljs-keyword">and</span> <span class="hljs-built_in">window</span>.Blob
+            blob = <span class="hljs-keyword">new</span> Blob([_inlineWorkerFunction.toString()], <span class="hljs-attribute">type</span>: <span class="hljs-string">'text/javascript'</span>)
+            workers[n] = <span class="hljs-keyword">new</span> Worker(<span class="hljs-built_in">window</span>.URL.createObjectURL blob)
+          <span class="hljs-keyword">else</span>
+            workers[n] = <span class="hljs-keyword">new</span> Worker(<span class="hljs-string">"<span class="hljs-subst">#{_options.PATH_TO_WORKER_SCRIPT}</span>/worker.min.js"</span>)
           workers[n].addEventListener <span class="hljs-string">'message'</span>, _onMessage</pre></div>
         
       
@@ -313,7 +346,7 @@ discarded.</p>
 of <strong>Workers</strong>.</p>
 
         
-          <div class='highlight'><pre>          results[nWorkers] = <span class="hljs-function"><span class="hljs-params">(results[nWorkers].reduce (sum, next) -&gt; 
+          <div class='highlight'><pre>          results[nWorkers] = <span class="hljs-function"><span class="hljs-params">(results[nWorkers].reduce (sum, next) -&gt;
             sum + next)</span> / <span class="hljs-title">_options</span>.<span class="hljs-title">NUMBER_OF_TIMES_TO_BENCHMARK</span>
 
 </span></pre></div>
@@ -328,7 +361,7 @@ of <strong>Workers</strong>.</p>
           resultP = results[nWorkers - <span class="hljs-number">1</span>]
           resultPP = results[nWorkers - <span class="hljs-number">2</span>]
 
-          <span class="hljs-keyword">if</span> nWorkers &gt; <span class="hljs-number">2</span> <span class="hljs-keyword">and</span> resultN &gt; resultP <span class="hljs-keyword">and</span> resultN &gt; resultPP 
+          <span class="hljs-keyword">if</span> nWorkers &gt; <span class="hljs-number">2</span> <span class="hljs-keyword">and</span> resultN &gt; resultP <span class="hljs-keyword">and</span> resultN &gt; resultPP
             workersPerBenchmark = []</pre></div>
         
       
@@ -353,9 +386,9 @@ smallest time taken to complete the set of tasks. This value should be the
 optimum number of <strong>WebWorkers</strong> to run on the current device.</p>
 
         
-          <div class='highlight'><pre>        <span class="hljs-keyword">for</span> own nWorkers, result <span class="hljs-keyword">of</span> results
-          <span class="hljs-keyword">if</span> result &lt; smallestTime
-            smallestTime = result
+          <div class='highlight'><pre>        <span class="hljs-keyword">for</span> own nWorkers, nResult <span class="hljs-keyword">of</span> results
+          <span class="hljs-keyword">if</span> nResult &lt; smallestTime
+            smallestTime = nResult
             bestNWorkers = +nWorkers
         bestNWorkers</pre></div>
         
@@ -380,7 +413,7 @@ functionality for a page if <strong><code>Workers</code></strong> aren’t avail
 the user to specify options for the benchmark tests, including:</p>
 <ul>
 <li><p><code>maxWorkersToTestFor</code> - The maximum number of <strong>WebWorkers</strong> that should be
-tested for. <em>Defaults to <code>8</code></em></p>
+tested for. <em>Defaults to <code>8</code></em>, rounded up to the nearest power of two.</p>
 </li>
 <li><p><code>numberOfTimesToBenchmark</code> - The number of times that the benchmark test
 should be run. Higher values yield more accurate results, but take longer to
@@ -395,11 +428,13 @@ to <code>&#39;.&#39;</code></em></p>
 </ul>
 
         
-          <div class='highlight'><pre>      <span class="hljs-function"><span class="hljs-title">setup</span> = <span class="hljs-params">(options = {})</span> -&gt;</span>
-        _options.MAX_WORKERS_TO_TEST_FOR ?= options.maxWorkersToTestFor
-        _options.NUMBER_OF_TIMES_TO_BENCHMARK ?= options.numberOfTimesToBenchmark
-        _options.PATH_TO_WORKER_SCRIPT ?= options.pathToWorkerScript
-        _options.ON_COMPLETE ?= options.onComplete</pre></div>
+          <div class='highlight'><pre>      { pow, ceil, log, LN2 } = Math
+      <span class="hljs-function"><span class="hljs-title">setup</span> = <span class="hljs-params">(options = {})</span> -&gt;</span>
+        maxWorkers = options.maxWorkersToTestFor <span class="hljs-keyword">or</span> _options.MAX_WORKERS_TO_TEST_FOR
+        _options.MAX_WORKERS_TO_TEST_FOR = pow(<span class="hljs-number">2</span>, ceil(log(maxWorkers) / LN2))
+        _options.NUMBER_OF_TIMES_TO_BENCHMARK = options.numberOfTimesToBenchmark <span class="hljs-keyword">or</span> _options.NUMBER_OF_TIMES_TO_BENCHMARK
+        _options.PATH_TO_WORKER_SCRIPT = options.pathToWorkerScript <span class="hljs-keyword">or</span> _options.PATH_TO_WORKER_SCRIPT
+        _options.ON_COMPLETE = options.onComplete <span class="hljs-keyword">or</span> _options.ON_COMPLETE</pre></div>
         
       
         
@@ -409,9 +444,11 @@ to <code>&#39;.&#39;</code></em></p>
 <strong>Workers</strong> to try to run.</p>
 
         
-          <div class='highlight'><pre>      <span class="hljs-function"><span class="hljs-title">start</span> = -&gt;</span>
+          <div class='highlight'><pre>      <span class="hljs-function"><span class="hljs-title">start</span> = <span class="hljs-params">(callback)</span> -&gt;</span>
+        <span class="hljs-keyword">if</span> callback? <span class="hljs-keyword">and</span> <span class="hljs-keyword">typeof</span> callback <span class="hljs-keyword">is</span> <span class="hljs-string">'function'</span>
+          _options.ON_COMPLETE = callback
         _inittime = performance.now()
-        _run [<span class="hljs-number">1.</span>._options.MAX_WORKERS_TO_TEST_FOR]</pre></div>
+        _run [<span class="hljs-number">0.</span>.log<span class="hljs-function"><span class="hljs-params">(_options.MAX_WORKERS_TO_TEST_FOR)</span> / <span class="hljs-title">LN2</span>].<span class="hljs-title">map</span> <span class="hljs-params">(n)</span> -&gt;</span> pow <span class="hljs-number">2</span>, n</pre></div>
         
       
         
@@ -425,13 +462,29 @@ will return the optimum number of <strong>WebWorkers</strong> for the current de
         <span class="hljs-keyword">if</span> _result
           _result
         <span class="hljs-keyword">else</span>
-          _log <span class="hljs-string">'Benchmark not yet complete.'</span>
-          <span class="hljs-literal">false</span>
+          _log <span class="hljs-string">'Benchmark not yet complete.'</span>, <span class="hljs-string">'warn'</span>
+          <span class="hljs-literal">false</span></pre></div>
+        
+      
+        
+        <p><strong><code>navigator.getHardwareConcurrency</code></strong> and <strong><code>navigator.hardwareConcurrency</code></strong>
+are set so that <strong>WorkerBench</strong> can act as a polyfill for the
+<a href="http://wiki.whatwg.org/wiki/Navigator_HW_Concurrency">Hardware Concurrency API</a></p>
 
-    { workersAvailable, setup, start, result }
+        
+          <div class='highlight'><pre>    <span class="hljs-keyword">if</span> <span class="hljs-built_in">window</span>?.navigator? <span class="hljs-keyword">and</span> <span class="hljs-built_in">window</span>.navigator.hardwareConcurrency
+      <span class="hljs-function"><span class="hljs-title">start</span> = <span class="hljs-params">(callback = _options.ON_COMPLETE)</span> -&gt;</span>
+        <span class="hljs-keyword">if</span> callback? <span class="hljs-keyword">and</span> <span class="hljs-keyword">typeof</span> callback <span class="hljs-keyword">is</span> <span class="hljs-string">'function'</span>
+          callback navigator.hardwareConcurrency
 
-  WB.start()
-  WB</pre></div>
+      <span class="hljs-function"><span class="hljs-title">result</span> = -&gt;</span>
+        navigator.hardwareConcurrency
+
+    <span class="hljs-keyword">if</span> <span class="hljs-built_in">window</span>?.navigator? <span class="hljs-keyword">and</span> !<span class="hljs-built_in">window</span>.navigator.hardwareConcurrency
+      navigator.getHardwareConcurrency = start
+      Object.defineProperty navigator, <span class="hljs-string">'hardwareConcurrency'</span>, <span class="hljs-attribute">get</span>: result
+
+    { workersAvailable, setup, start, result }</pre></div>
         
       
         

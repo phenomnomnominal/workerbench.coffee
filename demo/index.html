@@ -1,0 +1,33 @@
+<!DOCTYPE HTML>
+<html lang="en-US">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1" />
+        <title>WorkerBench</title>
+        <link href="style.css" rel="stylesheet" type="text/css" />
+    </head>
+    <body>
+        <main>
+          <h1>Workerbench</h1>
+          <h2>Web-worker estimator</h2>
+          <p>WorkerBench provides a rough estimate of how many WebWorkers can be started on a device at a point in time.
+            It's also a very rough polyfill for the <a href="http://wiki.whatwg.org/wiki/Navigator_HW_Concurrency">Hardware Concurrency API.</a>
+          </p>
+          <ul>
+            <li><a href="https://github.com/phenomnomnominal/workerbench.coffee">Code</a></li>
+            <li><a href="/docs/workerbench.html">Docs</a></li>
+          </ul>
+          <h4 id="Estimation">Running...</h4>
+          <h4 id="Time"></h4>
+        </main>
+        <script type="text/javascript" src="../workerbench.min.js"></script>
+        <script>
+            var start = Date.now();
+            WorkerBench.start(function (result) {
+              document.getElementById('Estimation').textContent = 'Estimated optimum web-workers: ' + result;
+              document.getElementById('Time').textContent = ((Date.now() - start) / 1000).toFixed(3) + ' seconds';
+            });
+        </script>
+    </body>
+</html>

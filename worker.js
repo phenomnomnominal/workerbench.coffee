@@ -1,7 +1,5 @@
 (function() {
-  var benchmark;
-
-  benchmark = function(e) {
+  self.onmessage = function(e) {
     var endTime;
     endTime = Date.now() + e.data;
     while (Date.now() < endTime) {
@@ -9,8 +7,6 @@
     }
     return self.postMessage('Finished');
   };
-
-  self.addEventListener('message', benchmark);
 
 }).call(this);
 
