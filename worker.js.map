@@ -1,0 +1,10 @@
+{
+  "version": 3,
+  "file": "worker.js",
+  "sourceRoot": "coffeescript/",
+  "sources": [
+    "worker.litcoffee"
+  ],
+  "names": [],
+  "mappings": "AAcI;CAAA,CAAA,CAAiB,CAAb,KAAJ;CAKE,MAAA,CAAA;CAAA,EAAU,CAAV,GAAA;CACQ,EAAM,CAAI,GAAV,IAAM;CAAd,EAAI,GAAA,GAAA;CADJ,IACQ;CAKH,GAAD,MAAJ,CAAA;CAXF,EAAiB;CAAjB"
+}
