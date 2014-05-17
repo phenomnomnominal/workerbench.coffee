@@ -12,24 +12,24 @@ html, body, div, span, applet, object, iframe, h1, h2, h3, h4, h5, h6, p, blockq
 
 @font-face {
   font-family: "Bebas";
-  src: url('/demo/fonts/bebas.eot?1398186070');
-  src: url('/demo/fonts/bebas.eot?&1398186070#iefix') format('embedded-opentype'), url('/demo/fonts/bebas.woff?1398186070') format('woff'), url('/demo/fonts/bebas.ttf?1398186070') format('truetype'), url('/demo/fonts/bebas.svg?1398186070') format('svg');
+  src: url('/fonts/bebas.eot?1398186070');
+  src: url('/fonts/bebas.eot?&1398186070#iefix') format('embedded-opentype'), url('/fonts/bebas.woff?1398186070') format('woff'), url('/fonts/bebas.ttf?1398186070') format('truetype'), url('/fonts/bebas.svg?1398186070') format('svg');
 }
 @media screen and (-webkit-min-device-pixel-ratio: 0) {
   @font-face {
     font-family: "Bebas";
-    src: url("/demo/fonts/bebas.svg") format("svg");
+    src: url("/fonts/bebas.svg") format("svg");
   }
 }
 @font-face {
   font-family: "Lane";
-  src: url('/demo/fonts/lane.eot?1398186070');
-  src: url('/demo/fonts/lane.eot?&1398186070#iefix') format('embedded-opentype'), url('/demo/fonts/lane.woff?1398186070') format('woff'), url('/demo/fonts/lane.ttf?1398186070') format('truetype'), url('/demo/fonts/lane.svg?1398186070') format('svg');
+  src: url('/fonts/lane.eot?1398186070');
+  src: url('/fonts/lane.eot?&1398186070#iefix') format('embedded-opentype'), url('/fonts/lane.woff?1398186070') format('woff'), url('/fonts/lane.ttf?1398186070') format('truetype'), url('/fonts/lane.svg?1398186070') format('svg');
 }
 @media screen and (-webkit-min-device-pixel-ratio: 0) {
   @font-face {
     font-family: "Lane";
-    src: url("/demo/fonts/lane.svg") format("svg");
+    src: url("/fonts/lane.svg") format("svg");
   }
 }
 
