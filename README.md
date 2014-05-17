@@ -46,7 +46,7 @@ The **WorkerBench.setup** function takes a configuration `_options` object, whic
 Once the `onComplete` function is called when the benchmark tests are complete, the result can be retrieved from **WorkerBench.result** at any time. There is also a **WorkerBench.workersAvailable** function, which gives a **boolean** result as to whether or not the client environment can create **WebWorkers**.
 This is useful for providing fall-back functionality in situations where they aren't available.
 
-A working demo (with the default settings) can be tried [**here**](http://phenomnomnominal.github.io/projects/workerbench)!
+A working demo (with the default settings) can be tried [**here**](http://phenomnomnominal.github.io/workerbench.coffee/)!
 
 ## Documentation:
 
